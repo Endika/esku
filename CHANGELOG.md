@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.5](https://github.com/Endika/esku/compare/v1.7.4...v1.7.5) (2026-08-05)
+
+
+### Bug Fixes
+
+* report disk size instead of gzip transfer size ([ec14438](https://github.com/Endika/esku/commit/ec1443878bb248c66ed1480b1ff737fa48f1b94c))
+
 ## [1.7.4](https://github.com/Endika/esku/compare/v1.7.3...v1.7.4) (2026-08-05)
 
 
