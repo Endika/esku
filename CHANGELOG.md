@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.2](https://github.com/Endika/esku/compare/v1.7.1...v1.7.2) (2026-08-05)
+
+
+### Bug Fixes
+
+* stop drawing pose landmarks the model never saw ([27cfdb2](https://github.com/Endika/esku/commit/27cfdb29a71baa3e3f81adcfd55af98c016ee874))
+
 ## [1.7.1](https://github.com/Endika/esku/compare/v1.7.0...v1.7.1) (2026-08-05)
 
 
