@@ -1,6 +1,7 @@
 import { Container } from '@bootstrap/Container';
 import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
 import { UNSUPPORTED_LETTERS } from '@infrastructure/recognition/packs/lseAlphabet';
+import { LandmarkOverlay, type OverlayState } from '@presentation/components/LandmarkOverlay';
 
 declare const __APP_VERSION__: string;
 
@@ -16,6 +17,7 @@ export function renderApp(root: HTMLElement): void {
 
     <div class="stage">
       <video id="video" class="stage__video" playsinline muted></video>
+      <canvas id="overlay" class="stage__overlay" aria-hidden="true"></canvas>
       <p class="stage__placeholder" id="placeholder">
         La cámara se activa al empezar.<br />El vídeo no se graba ni sale del dispositivo.
       </p>
@@ -49,6 +51,7 @@ export function renderApp(root: HTMLElement): void {
   `;
 
   const video = must<HTMLVideoElement>(root, '#video');
+  const overlayCanvas = must<HTMLCanvasElement>(root, '#overlay');
   const placeholder = must<HTMLElement>(root, '#placeholder');
   const hint = must<HTMLElement>(root, '#hint');
   const transcriptEl = must<HTMLElement>(root, '#transcript');
@@ -57,6 +60,7 @@ export function renderApp(root: HTMLElement): void {
 
   const container = new Container(video);
   const { recognize } = container;
+  const overlay = new LandmarkOverlay(overlayCanvas, video);
   let running = false;
 
   const render = (text: string, candidates: readonly { gloss: { text: string } }[]) => {
@@ -64,6 +68,16 @@ export function renderApp(root: HTMLElement): void {
     const top = candidates[0]?.gloss.text;
     hint.hidden = !top;
     if (top) hint.textContent = top.toUpperCase();
+  };
+
+  /**
+   * Three states, because "nothing happened" has three different causes and the user can
+   * only act on the right one: no hand in frame, hand tracked but shape unknown, or reading.
+   */
+  const describeTracking = (hands: number, hasCandidate: boolean): [OverlayState, string] => {
+    if (hands === 0) return ['searching', 'Buscando la mano. Ponla dentro del encuadre.'];
+    if (!hasCandidate) return ['tracking', 'Mano detectada. Esa forma todavía no la conozco.'];
+    return ['recognised', 'Leyendo.'];
   };
 
   toggle.addEventListener('click', async () => {
@@ -74,6 +88,8 @@ export function renderApp(root: HTMLElement): void {
       placeholder.hidden = false;
       hint.hidden = true;
       video.classList.remove('is-live');
+      overlayCanvas.classList.remove('is-live');
+      overlay.clear();
       status.textContent = 'Cámara apagada.';
       return;
     }
@@ -82,14 +98,17 @@ export function renderApp(root: HTMLElement): void {
     // The engine is ~29 MB on first run and cached after; say so rather than look frozen.
     status.textContent = 'Preparando el motor de reconocimiento…';
     try {
-      await recognize.start(({ transcript, candidates }) => {
+      await recognize.start(({ transcript, candidates, frame }) => {
         render(transcript.toText(), candidates);
+        const [state, message] = describeTracking(frame.hands.length, candidates.length > 0);
+        overlay.draw(frame, state);
+        status.textContent = message;
       });
       running = true;
       placeholder.hidden = true;
       video.classList.add('is-live');
+      overlayCanvas.classList.add('is-live');
       toggle.textContent = 'Parar';
-      status.textContent = 'Leyendo. Mantén la mano dentro del encuadre.';
     } catch (error) {
       status.textContent =
         error instanceof CameraUnavailableError
