@@ -13,6 +13,8 @@ import numpy as np
 import torch
 from torch import nn
 
+from face import expression
+
 DATA = Path(__file__).parent / "data"
 
 # Pose landmarks that frame the signing space. MediaPipe's pose indices.
@@ -28,8 +30,15 @@ SEED = 7
 def load_raw(split: str):
     bundle = np.load(DATA / f"{split}_raw.npz", allow_pickle=True)
     count = int(bundle["n"][0])
+    has_face = "f0" in bundle
     samples = [
-        (bundle[f"r{i}"], bundle[f"l{i}"], bundle[f"p{i}"]) for i in range(count)
+        (
+            bundle[f"r{i}"],
+            bundle[f"l{i}"],
+            bundle[f"p{i}"],
+            bundle[f"f{i}"] if has_face else None,
+        )
+        for i in range(count)
     ]
     return samples, bundle["y"]
 
@@ -71,8 +80,40 @@ def hand_block(points: np.ndarray, side: str, pose: np.ndarray | None) -> np.nda
     return np.concatenate([shape.reshape(-1), located, wrist]).astype(np.float32)
 
 
-def signature(sample, frames: int, use_pose: bool, deltas: bool) -> np.ndarray:
-    right, left, pose = sample
+def torso_block(pose: np.ndarray) -> np.ndarray:
+    """Orientation of the torso and of the head on top of it.
+
+    The shoulder vector's angle gives the turn, and the depth difference between shoulders
+    says which way the body is squared — LSE uses that to point at referents in space. The
+    head offset is what makes a negating head-shake visible: it is a small value, but it
+    swings across the frames of the signature.
+    """
+    left, right = pose[LEFT_SHOULDER], pose[RIGHT_SHOULDER]
+    centre, width = body_frame(pose)
+    across = left - right
+    head = (pose[NOSE] - centre) / width
+    return np.array(
+        [
+            np.arctan2(across[1], across[0]),  # shoulder line tilt
+            across[2] / width,                 # one shoulder forward = torso turned
+            head[0],
+            head[1],
+            head[2],
+        ],
+        dtype=np.float32,
+    )
+
+
+def drop_depth(block: np.ndarray) -> np.ndarray:
+    """Strip every third value — the z channel — from a flattened point list."""
+    return np.delete(block.reshape(-1, 3), 2, axis=1).reshape(-1)
+
+
+def signature(
+    sample, frames: int, use_pose: bool, deltas: bool, face_mode: str = "none",
+    use_depth: bool = True,
+) -> np.ndarray:
+    right, left, pose, face = sample
     length = len(right)
     picks = [0] * frames if length == 1 else [
         int(round(s / (frames - 1) * (length - 1))) for s in range(frames)
@@ -81,9 +122,34 @@ def signature(sample, frames: int, use_pose: bool, deltas: bool) -> np.ndarray:
     rows = []
     for index in picks:
         p = pose[index] if use_pose else None
-        rows.append(np.concatenate([hand_block(right[index], "right", p),
-                                    hand_block(left[index], "left", p)]))
+        parts = [hand_block(right[index], "right", p), hand_block(left[index], "left", p)]
+
+        if use_pose:
+            parts.append(torso_block(pose[index]))
+
+        if face_mode != "none" and face is not None:
+            points = face[index]
+            if face_mode == "expression":
+                parts.append(expression(points))
+            elif face_mode == "points":
+                # Located against the torso like the hands, so face position and hand
+                # position live in the same coordinate frame.
+                centre, width = body_frame(pose[index])
+                parts.append(((points - centre) / width).reshape(-1).astype(np.float32))
+            elif face_mode == "both":
+                centre, width = body_frame(pose[index])
+                parts.append(((points - centre) / width).reshape(-1).astype(np.float32))
+                parts.append(expression(points))
+
+        row = np.concatenate(parts)
+        rows.append(row)
     stacked = np.stack(rows)
+
+    if not use_depth:
+        # MediaPipe's z is inferred from one camera rather than measured, so it is the
+        # noisiest channel by far. Whether it earns its place is a question for the test set,
+        # not for intuition.
+        stacked = np.stack([drop_depth_row(r, use_pose, face_mode) for r in stacked])
 
     if deltas:
         # Frame-to-frame change, so the model is handed motion instead of inferring it.
@@ -93,8 +159,39 @@ def signature(sample, frames: int, use_pose: bool, deltas: bool) -> np.ndarray:
     return stacked.reshape(-1).astype(np.float32)
 
 
-def build(samples, frames: int, use_pose: bool, deltas: bool) -> np.ndarray:
-    return np.stack([signature(s, frames, use_pose, deltas) for s in samples])
+def drop_depth_row(row: np.ndarray, use_pose: bool, face_mode: str) -> np.ndarray:
+    """Remove z from the landmark parts of a frame, leaving derived scalars untouched."""
+    hand_len = 69 if use_pose else 66
+    parts: list[np.ndarray] = []
+    offset = 0
+
+    for _ in range(2):
+        block = row[offset : offset + hand_len]
+        offset += hand_len
+        # 21 shape points, then wrist-located (3) and wrist-in-frame (3) when pose is on.
+        parts.append(drop_depth(block[:63]))
+        parts.append(drop_depth(block[63:]))
+
+    if use_pose:
+        parts.append(row[offset : offset + 5])  # torso scalars: already derived
+        offset += 5
+
+    if face_mode in ("points", "both"):
+        parts.append(drop_depth(row[offset : offset + 63]))
+        offset += 63
+    if face_mode in ("expression", "both"):
+        parts.append(row[offset : offset + 6])
+        offset += 6
+
+    return np.concatenate(parts)
+
+
+def build(
+    samples, frames: int, use_pose: bool, deltas: bool, face_mode: str, use_depth: bool
+) -> np.ndarray:
+    return np.stack(
+        [signature(s, frames, use_pose, deltas, face_mode, use_depth) for s in samples]
+    )
 
 
 def augment(x: torch.Tensor, width: int, strength: float) -> torch.Tensor:
@@ -125,14 +222,17 @@ class SignHead(nn.Module):
         return self.head(out.mean(dim=1))
 
 
-def run(name: str, frames: int, use_pose: bool, deltas: bool, strength: float, cache: dict):
+def run(name: str, frames: int, use_pose: bool, deltas: bool, strength: float,
+        face_mode: str, cache: dict, use_depth: bool = True):
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    key = (frames, use_pose, deltas)
+    key = (frames, use_pose, deltas, face_mode, use_depth)
     if key not in cache:
         cache[key] = {
-            split: build(cache["samples"][split], frames, use_pose, deltas)
+            split: build(
+                cache["samples"][split], frames, use_pose, deltas, face_mode, use_depth
+            )
             for split in ("train", "val", "test")
         }
     built = cache[key]
@@ -191,15 +291,21 @@ def main() -> None:
         cache["samples"][split] = samples
         cache["labels"][split] = labels
 
+    # Round two. Deltas are gone: round one measured them at -5.3 top-1, so every variant
+    # here builds on pose + 16 frames instead.
+    # Round two. Deltas are gone: round one measured them at -5.3 top-1, so every variant
+    # here builds on pose + 16 frames instead.
     variants = [
-        ("baseline: 8 frames, hands only", 8, False, False, 0.0),
-        ("+ pose-relative location", 8, True, False, 0.0),
-        ("+ 16 frames", 16, True, False, 0.0),
-        ("+ motion deltas", 16, True, True, 0.0),
-        ("+ augmentation", 16, True, True, 0.15),
+        ("pose + 16 frames (best so far)", 16, True, False, 0.0, "none", True),
+        ("  ... without depth (z)", 16, True, False, 0.0, "none", False),
+        ("+ augmentation, no deltas", 16, True, False, 0.15, "none", True),
+        ("+ face expression (6 scalars)", 16, True, False, 0.0, "expression", True),
+        ("+ face points (21 located)", 16, True, False, 0.0, "points", True),
+        ("+ face points and expression", 16, True, False, 0.0, "both", True),
+        ("+ face both + augmentation", 16, True, False, 0.15, "both", True),
     ]
-    for args in variants:
-        run(*args, cache)
+    for name, frames, pose, deltas, strength, face_mode, depth in variants:
+        run(name, frames, pose, deltas, strength, face_mode, cache, depth)
 
 
 if __name__ == "__main__":

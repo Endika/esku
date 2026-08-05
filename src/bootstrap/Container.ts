@@ -30,7 +30,9 @@ export class Container {
 
     this.source = new MediaPipeLandmarkSource(video, {
       wasmPath: `${base}wasm`,
-      modelPath: `${base}models/hand_landmarker.task`,
+      handModelPath: `${base}models/hand_landmarker.task`,
+      poseModelPath: `${base}models/pose_landmarker_lite.task`,
+      faceModelPath: `${base}models/face_landmarker.task`,
       maxHands: 2,
     });
 

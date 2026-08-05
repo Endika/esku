@@ -8,14 +8,21 @@ import {
   type Handedness,
   type HandLandmarks,
 } from '@domain/landmarks/value-objects/Landmark';
-import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
+import {
+  FaceLandmarker,
+  FilesetResolver,
+  HandLandmarker,
+  PoseLandmarker,
+} from '@mediapipe/tasks-vision';
 
 export type CameraFacing = 'user' | 'environment';
 
 export interface MediaPipeOptions {
   /** Where the vendored WASM lives, relative to the deployed base. */
   readonly wasmPath: string;
-  readonly modelPath: string;
+  readonly handModelPath: string;
+  readonly poseModelPath: string;
+  readonly faceModelPath: string;
   readonly maxHands: number;
 }
 
@@ -29,6 +36,8 @@ export interface MediaPipeOptions {
  */
 export class MediaPipeLandmarkSource implements ILandmarkSource {
   private landmarker: HandLandmarker | null = null;
+  private pose: PoseLandmarker | null = null;
+  private face: FaceLandmarker | null = null;
   private stream: MediaStream | null = null;
   private frameHandle: number | null = null;
   private lastVideoTime = -1;
@@ -73,11 +82,29 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
   async load(): Promise<void> {
     if (this.landmarker) return;
     const fileset = await FilesetResolver.forVisionTasks(this.options.wasmPath);
+
+    // Hands first and awaited alone: they are the only model recognition cannot work
+    // without, so a failure here is fatal while the other two are enhancements.
     this.landmarker = await HandLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetPath: this.options.modelPath, delegate: 'GPU' },
+      baseOptions: { modelAssetPath: this.options.handModelPath, delegate: 'GPU' },
       runningMode: 'VIDEO',
       numHands: this.options.maxHands,
     });
+
+    const [pose, face] = await Promise.all([
+      PoseLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: this.options.poseModelPath, delegate: 'GPU' },
+        runningMode: 'VIDEO',
+        numPoses: 1,
+      }).catch(() => null),
+      FaceLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetPath: this.options.faceModelPath, delegate: 'GPU' },
+        runningMode: 'VIDEO',
+        numFaces: 1,
+      }).catch(() => null),
+    ]);
+    this.pose = pose;
+    this.face = face;
   }
 
   async start(listener: LandmarkListener): Promise<void> {
@@ -112,7 +139,15 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
         this.lastVideoTime = this.video.currentTime;
         const timestampMs = performance.now();
         const result = this.landmarker.detectForVideo(this.video, timestampMs);
-        listener({ timestampMs, hands: toHands(result, this.facing) });
+        const pose = this.pose?.detectForVideo(this.video, timestampMs);
+        const face = this.face?.detectForVideo(this.video, timestampMs);
+
+        listener({
+          timestampMs,
+          hands: toHands(result, this.facing),
+          pose: pose?.landmarks?.[0] ? { points: pose.landmarks[0] } : undefined,
+          face: face?.faceLandmarks?.[0] ? { points: face.faceLandmarks[0] } : undefined,
+        });
       }
 
       this.frameHandle = requestAnimationFrame(tick);
@@ -133,6 +168,11 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
     });
     this.stream = null;
     this.video.srcObject = null;
+  }
+
+  /** Which extra trackers came up. The UI reports this so a missing part is explainable. */
+  get available(): { pose: boolean; face: boolean } {
+    return { pose: this.pose !== null, face: this.face !== null };
   }
 }
 

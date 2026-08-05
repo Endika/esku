@@ -1,9 +1,17 @@
+import type { FaceLandmarks, PoseLandmarks } from './BodyLandmarks';
 import type { HandLandmarks } from './Landmark';
 
-/** One instant of tracking: whatever hands were visible, plus when they were seen. */
+/**
+ * One instant of tracking: whatever was visible, plus when it was seen.
+ *
+ * Body and face are optional because the app can run on hands alone — that is what the
+ * fingerspelling engine needs, and it is what remains if the pose model has not loaded.
+ */
 export interface LandmarkFrame {
   readonly timestampMs: number;
   readonly hands: readonly HandLandmarks[];
+  readonly pose?: PoseLandmarks | undefined;
+  readonly face?: FaceLandmarks | undefined;
 }
 
 export function isEmpty(frame: LandmarkFrame): boolean {
