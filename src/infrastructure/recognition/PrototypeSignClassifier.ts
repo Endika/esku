@@ -2,7 +2,11 @@ import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFram
 import type { CustomSign } from '@domain/recognition/entities/CustomSign';
 import type { ICustomSignRepository } from '@domain/recognition/repositories/ICustomSignRepository';
 import type { ISignClassifier } from '@domain/recognition/services/ISignClassifier';
-import { similarity, windowSignature } from '@domain/recognition/services/windowSignature';
+import {
+  SIGNATURE_LENGTH,
+  similarity,
+  windowSignature,
+} from '@domain/recognition/services/windowSignature';
 import {
   byConfidenceDescending,
   type SignCandidate,
@@ -39,7 +43,15 @@ export class PrototypeSignClassifier implements ISignClassifier {
   }
 
   async load(): Promise<void> {
-    this.signs = await this.repository.findAll();
+    const stored = await this.repository.findAll();
+
+    // Signatures gained the wrist position when the trained vocabulary model landed, so
+    // prototypes recorded before that are a different length and can never match. Dropping
+    // them here means the sign simply disappears from the list and can be re-taught, rather
+    // than sitting there looking fine and never firing.
+    this.signs = stored.filter((sign) =>
+      sign.prototypes.every((prototype) => prototype.length === SIGNATURE_LENGTH),
+    );
     this.loaded = true;
   }
 

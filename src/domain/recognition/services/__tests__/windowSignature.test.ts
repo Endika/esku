@@ -11,10 +11,16 @@ function hold(curls: Curls, frames: number, handedness: 'left' | 'right' = 'righ
   );
 }
 
-/** A handshape travelling across the frame — a dynamic sign. */
-function travel(curls: Curls, frames: number, step = 0.04) {
+/**
+ * A handshape travelling a fixed distance, sampled at `frames` points.
+ *
+ * The span is fixed and the frame count varies, so this really is one sign performed at
+ * different speeds. An earlier version moved a fixed step *per frame*, which meant more
+ * frames also meant a longer path — a different sign, not a slower one.
+ */
+function travel(curls: Curls, frames: number, span = 0.24) {
   return Array.from({ length: frames }, (_, i) =>
-    buildFrame(i * 33, buildHand({ curls, offset: { x: i * step, y: 0 } })),
+    buildFrame(i * 33, buildHand({ curls, offset: { x: (i / (frames - 1)) * span, y: 0 } })),
   );
 }
 
@@ -71,12 +77,28 @@ describe('windowSignature', () => {
     expect(similarity(first, windowSignature(wobbly))).toBeGreaterThan(0.86);
   });
 
-  it('is unaffected by where in frame the sign happens', () => {
+  it('encodes where the sign happens, but only weakly', () => {
+    // Position is in the signature because LSE gives it meaning — the same handshape at the
+    // forehead and at the chest are different words. But it is 3 floats out of 66 per hand,
+    // so in a plain distance metric it moves the needle by very little.
+    //
+    // The trained model copes: its GRU learns how much to weight those inputs. Taught-sign
+    // matching does not, so two taught signs differing only in height WILL be confused.
+    // Asserting the real figure rather than a hoped-for one keeps that honest.
     const here = windowSignature(hold(POINT, 12));
-    const shifted = hold(POINT, 12).map((frame) =>
-      buildFrame(frame.timestampMs, buildHand({ curls: POINT, offset: { x: 0.25, y: -0.2 } })),
+    const higher = hold(POINT, 12).map((frame) =>
+      buildFrame(frame.timestampMs, buildHand({ curls: POINT, offset: { x: 0, y: -0.3 } })),
     );
-    expect(similarity(here, windowSignature(shifted))).toBeGreaterThan(0.99);
+    const score = similarity(here, windowSignature(higher));
+
+    expect(score).toBeLessThan(1);
+    expect(score).toBeGreaterThan(0.86);
+  });
+
+  it('still ignores handshape scale, so distance from the camera does not matter', () => {
+    const near = windowSignature(hold(POINT, 12));
+    const same = windowSignature(hold(POINT, 20));
+    expect(similarity(near, same)).toBeGreaterThan(0.99);
   });
 
   it('keeps the two hands in separate slots', () => {

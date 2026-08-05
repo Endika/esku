@@ -1,11 +1,10 @@
-import { toFeatureVector } from '@domain/landmarks/services/normalizeHand';
-import { HAND_LANDMARK_COUNT } from '@domain/landmarks/value-objects/Landmark';
+import { HAND_FEATURE_LENGTH, toFeatureVector } from '@domain/landmarks/services/normalizeHand';
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 
 /** Frames every signature is resampled to, whatever the sign's real duration. */
 export const SIGNATURE_FRAMES = 8;
 
-const HAND_FLOATS = HAND_LANDMARK_COUNT * 3;
+const HAND_FLOATS = HAND_FEATURE_LENGTH;
 /** Right hand then left hand, zero-filled when a hand is absent. */
 const FRAME_FLOATS = HAND_FLOATS * 2;
 export const SIGNATURE_LENGTH = SIGNATURE_FRAMES * FRAME_FLOATS;
@@ -16,6 +15,8 @@ export const SIGNATURE_LENGTH = SIGNATURE_FRAMES * FRAME_FLOATS;
  * Resampling to a fixed frame count is what makes a fast signing of a word and a slow one
  * land near each other: the shape of the movement survives, its duration does not. Without
  * it, two recordings of the same sign would differ mostly in how long they took.
+ *
+ * Layout must match `tools/train/features.py` exactly — the trained model reads this vector.
  *
  * Both hands are encoded from the start, in a stable right-then-left order rather than by
  * which hand is dominant in a given frame — many LSE signs are two-handed, and a signature
