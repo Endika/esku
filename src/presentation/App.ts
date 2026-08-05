@@ -2,6 +2,7 @@ import { Container } from '@bootstrap/Container';
 import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
 import { UNSUPPORTED_LETTERS } from '@infrastructure/recognition/packs/lseAlphabet';
 import { LandmarkOverlay, type OverlayState } from '@presentation/components/LandmarkOverlay';
+import { StoragePanel } from '@presentation/components/StoragePanel';
 import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
 
 declare const __APP_VERSION__: string;
@@ -36,6 +37,7 @@ export function renderApp(root: HTMLElement): void {
     <p class="status" id="status" role="status"></p>
 
     <div id="teach"></div>
+    <div id="storage"></div>
 
     <section class="card">
       <h2 class="card__title">Deletreo, por ahora</h2>
@@ -132,6 +134,15 @@ export function renderApp(root: HTMLElement): void {
   must<HTMLButtonElement>(root, '#clear').addEventListener('click', () => {
     recognize.clear();
     render(recognize.current.toText(), []);
+  });
+
+  new StoragePanel(must<HTMLElement>(root, '#storage'), {
+    isSupported: () => container.engineStorage.isSupported(),
+    report: () => container.engineStorage.report(),
+    clear: () => container.engineStorage.clear(),
+    // Loading through the real source downloads exactly the WASM variant this browser will
+    // use, rather than guessing and fetching both the SIMD and no-SIMD builds.
+    preload: () => container.source.load(),
   });
 
   new TeachSignPanel(must<HTMLElement>(root, '#teach'), {

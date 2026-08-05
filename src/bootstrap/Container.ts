@@ -5,6 +5,7 @@ import type { ISignClassifier } from '@domain/recognition/services/ISignClassifi
 import { IndexedDBCustomSignRepository } from '@infrastructure/persistence/indexeddb/IndexedDBCustomSignRepository';
 import { HandshapeAlphabetClassifier } from '@infrastructure/recognition/HandshapeAlphabetClassifier';
 import { PrototypeSignClassifier } from '@infrastructure/recognition/PrototypeSignClassifier';
+import { EngineCacheStorage } from '@infrastructure/storage/EngineCacheStorage';
 import { MediaPipeLandmarkSource } from '@infrastructure/vision/MediaPipeLandmarkSource';
 
 /**
@@ -17,6 +18,7 @@ export class Container {
   readonly taught = new PrototypeSignClassifier(this.customSigns);
   readonly teach = new TeachCustomSignUseCase(this.customSigns);
   readonly manageCustomSigns = new ManageCustomSignsUseCase(this.customSigns);
+  readonly engineStorage = new EngineCacheStorage();
   readonly classifiers: readonly ISignClassifier[];
   readonly recognize: RecognizeSignsUseCase;
 

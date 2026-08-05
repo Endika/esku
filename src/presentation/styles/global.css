@@ -355,3 +355,15 @@ body {
   color: var(--text-muted);
   font-size: 0.9rem;
 }
+
+.storage {
+  font-size: 1.4rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 14px 0 4px;
+}
+
+.card__body--tight {
+  font-size: 0.78rem;
+  margin-top: 10px;
+}
