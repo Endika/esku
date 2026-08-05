@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.4](https://github.com/Endika/esku/compare/v1.7.3...v1.7.4) (2026-08-05)
+
+
+### Bug Fixes
+
+* cache the wasm runtime so offline actually works ([0daeeb9](https://github.com/Endika/esku/commit/0daeeb938833c977e1b6e400a207fb54107e4035))
+
 ## [1.7.3](https://github.com/Endika/esku/compare/v1.7.2...v1.7.3) (2026-08-05)
 
 
