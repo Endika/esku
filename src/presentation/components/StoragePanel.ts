@@ -5,7 +5,7 @@ export interface StoragePanelPorts {
   report(): Promise<{ cachedBytes: number; entries: number; hasRuntime: boolean }>;
   clear(): Promise<boolean>;
   /** Fetches the engine now, so the first real use is not the first download. */
-  preload(): Promise<void>;
+  preload(onProgress: (done: number, total: number) => void): Promise<void>;
 }
 
 /**
@@ -73,7 +73,9 @@ export class StoragePanel {
     this.setBusy(true);
     this.say('Descargando el motor…');
     try {
-      await this.ports.preload();
+      await this.ports.preload((done, total) => {
+        this.say(`Descargando el motor… ${done} de ${total} ficheros`);
+      });
       this.say('Motor descargado. Ya funciona sin conexión.');
     } catch {
       this.say('No se pudo descargar. Comprueba la conexión.');
