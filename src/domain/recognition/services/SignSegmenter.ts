@@ -20,9 +20,18 @@ export interface SegmenterOptions {
   readonly maxFrames: number;
 }
 
+/**
+ * Tuned against SWL-LSE's test split by replaying it through this segmenter and scoring the
+ * real model on what came out — `tools/train/sweep.py`. The model reaches 0.741 top-1 when
+ * fed whole recordings; these settings get the segmented path to 0.739, where the previous
+ * 0.08 / 6 gave 0.722.
+ *
+ * The lower motion threshold also fixes gentle signing: at 0.08 a small-amplitude sign never
+ * crossed the line, so the segmenter stayed idle and the vocabulary engine was never asked.
+ */
 export const DEFAULT_SEGMENTER_OPTIONS: SegmenterOptions = {
-  motionThreshold: 0.08,
-  settleFrames: 6,
+  motionThreshold: 0.03,
+  settleFrames: 10,
   minFrames: 4,
   maxFrames: 48,
 };

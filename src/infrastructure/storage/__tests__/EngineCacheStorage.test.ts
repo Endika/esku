@@ -21,10 +21,15 @@ describe('EngineCacheStorage', () => {
     // jsdom has no CacheStorage, which is also the real situation in a non-secure context.
     const storage = new EngineCacheStorage();
     expect(storage.isSupported()).toBe(false);
-    expect(await storage.report()).toEqual({ cachedBytes: 0, entries: 0 });
+    expect(await storage.report()).toEqual({ cachedBytes: 0, entries: 0, hasRuntime: false });
   });
 
   it('reports nothing freed rather than throwing when there is no cache to clear', async () => {
     expect(await new EngineCacheStorage().clear()).toBe(false);
+  });
+
+  it('does not claim the runtime is cached when nothing is', async () => {
+    // Weights without the WASM that runs them look "downloaded" and fail offline.
+    expect((await new EngineCacheStorage().report()).hasRuntime).toBe(false);
   });
 });
