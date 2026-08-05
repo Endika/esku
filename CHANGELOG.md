@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.6](https://github.com/Endika/esku/compare/v1.7.5...v1.7.6) (2026-08-05)
+
+
+### Bug Fixes
+
+* stop discarding finished signs while the classifier is busy ([e35c899](https://github.com/Endika/esku/commit/e35c899cd833f676e89b5bb8c1ef9bd5a5e0c25c))
+
 ## [1.7.5](https://github.com/Endika/esku/compare/v1.7.4...v1.7.5) (2026-08-05)
 
 
