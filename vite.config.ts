@@ -14,13 +14,13 @@ export default defineConfig(({ command }) => ({
   },
   resolve: {
     alias: {
-      '@domain': path.resolve(__dirname, 'src/domain'),
-      '@application': path.resolve(__dirname, 'src/application'),
-      '@infrastructure': path.resolve(__dirname, 'src/infrastructure'),
-      '@presentation': path.resolve(__dirname, 'src/presentation'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
-      '@bootstrap': path.resolve(__dirname, 'src/bootstrap'),
-      '@': path.resolve(__dirname, 'src'),
+      '@domain': path.resolve(import.meta.dirname, 'src/domain'),
+      '@application': path.resolve(import.meta.dirname, 'src/application'),
+      '@infrastructure': path.resolve(import.meta.dirname, 'src/infrastructure'),
+      '@presentation': path.resolve(import.meta.dirname, 'src/presentation'),
+      '@shared': path.resolve(import.meta.dirname, 'src/shared'),
+      '@bootstrap': path.resolve(import.meta.dirname, 'src/bootstrap'),
+      '@': path.resolve(import.meta.dirname, 'src'),
     },
   },
   optimizeDeps: {
@@ -55,11 +55,25 @@ export default defineConfig(({ command }) => ({
         ],
       },
       workbox: {
-        // The MediaPipe .task bundles and the ONNX heads are several MB each; they are
-        // precached deliberately so the very first offline launch can already recognise.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2,wasm,task,onnx,json}'],
-        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
+        // Precache the shell only. The recognition engine is ~29 MB of WASM and weights;
+        // precaching it would mean a 29 MB download before the first screen paints, and
+        // most of it is the SIMD/no-SIMD pair of which any given browser uses exactly one.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        globIgnores: ['wasm/**', 'models/**'],
         cleanupOutdatedCaches: true,
+        runtimeCaching: [
+          {
+            // CacheFirst: these are content-addressed by release and never change in place,
+            // so once fetched the app is fully offline without ever re-validating.
+            urlPattern: ({ url }) => /\/(wasm|models)\//.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'esku-engine',
+              expiration: { maxEntries: 12 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: false,
