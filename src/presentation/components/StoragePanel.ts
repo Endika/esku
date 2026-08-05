@@ -31,9 +31,10 @@ export class StoragePanel {
       <section class="card">
         <h2 class="card__title">Espacio en el dispositivo</h2>
         <p class="card__body">
-          El motor de reconocimiento son unos 30 MB y se guarda la primera vez que lo usas,
-          para que después funcione sin conexión. Puedes descargarlo ahora o liberarlo cuando
-          quieras: se volverá a bajar solo la próxima vez que enciendas la cámara.
+          El motor de reconocimiento son unos <strong>19 MB de descarga</strong>, que ocupan
+          <strong>30 MB en el dispositivo</strong> una vez descomprimidos. Se guarda la primera
+          vez que lo usas para que después funcione sin conexión. Puedes descargarlo ahora o
+          liberarlo cuando quieras: se volverá a bajar la próxima vez que enciendas la cámara.
         </p>
 
         <p class="storage" id="storage-figure">—</p>
@@ -117,7 +118,7 @@ export class StoragePanel {
       return;
     }
 
-    figure.textContent = `${formatBytes(cachedBytes)} guardados`;
+    figure.textContent = `${formatBytes(cachedBytes)} en el dispositivo`;
     if (!hasRuntime) {
       // Weights without the runtime that executes them: online this is invisible, offline it
       // is the difference between working and not.
