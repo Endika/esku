@@ -39,6 +39,15 @@ export class RecognizeSignsUseCase {
   private busy = false;
   /** Set while teaching: the next completed sign is handed over instead of transcribed. */
   private capture: ((window: readonly LandmarkFrame[]) => void) | null = null;
+  /**
+   * A finished sign waiting for the classifier to free up.
+   *
+   * A window closes on exactly one frame. Dropping it because a previous classification was
+   * still running loses the whole sign, permanently and silently — and with three MediaPipe
+   * models plus a GRU running per frame on a phone, that is the common case, not the rare
+   * one. Holding it here means a slow device recognises late instead of not at all.
+   */
+  private pendingWindow: readonly LandmarkFrame[] | null = null;
 
   constructor(
     private readonly source: ILandmarkSource,
@@ -52,6 +61,7 @@ export class RecognizeSignsUseCase {
 
   stop(): void {
     this.source.stop();
+    this.pendingWindow = null;
     this.segmenter.reset();
     this.frameStabilizer.release();
     this.windowStabilizer.release();
@@ -105,6 +115,7 @@ export class RecognizeSignsUseCase {
     }
 
     const closedWindow = this.segmenter.push(frame);
+    if (closedWindow) this.pendingWindow = closedWindow;
 
     if (this.capture) {
       // Teaching: hand the finished sign over, and transcribe nothing meanwhile — the user
@@ -112,6 +123,7 @@ export class RecognizeSignsUseCase {
       if (closedWindow) {
         const deliver = this.capture;
         this.capture = null;
+        this.pendingWindow = null;
         deliver(closedWindow);
       }
       this.emit([], frame);
@@ -125,8 +137,10 @@ export class RecognizeSignsUseCase {
       const accepted = this.frameStabilizer.accept(live[0] ?? null);
       if (accepted) this.append(accepted, frame.timestampMs);
 
-      if (closedWindow) {
-        const words = await this.classifyWindow(closedWindow);
+      const pending = this.pendingWindow;
+      this.pendingWindow = null;
+      if (pending) {
+        const words = await this.classifyWindow(pending);
         const word = this.windowStabilizer.accept(words[0] ?? null);
         if (word) this.append(word, frame.timestampMs);
         this.windowStabilizer.release();
