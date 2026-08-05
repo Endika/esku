@@ -1,6 +1,8 @@
 import {
   ARM_CONNECTIONS,
-  NECK_CONNECTIONS,
+  isVisible,
+  neckSegment,
+  PosePoint,
   TORSO_CONNECTIONS,
 } from '@domain/landmarks/value-objects/BodyLandmarks';
 import { HAND_CONNECTIONS, type Landmark } from '@domain/landmarks/value-objects/Landmark';
@@ -82,10 +84,23 @@ export class LandmarkOverlay {
     const pose = frame.pose?.points ?? [];
     const face = frame.face?.points ?? [];
 
+    const neck = pose.length > 0 ? neckSegment(pose) : null;
+
     if (pose.length > 0) {
       this.drawEdges(pose, TORSO_CONNECTIONS, PART_COLOURS.torso, 3.5 * unit, project);
       this.drawEdges(pose, ARM_CONNECTIONS, PART_COLOURS.arms, 3.5 * unit, project);
-      this.drawEdges(pose, NECK_CONNECTIONS, PART_COLOURS.neck, 2.5 * unit, project);
+    }
+
+    if (neck) {
+      this.context.strokeStyle = PART_COLOURS.neck;
+      this.context.lineWidth = 3 * unit;
+      const [from, to] = neck;
+      const start = project(from.x, from.y);
+      const end = project(to.x, to.y);
+      this.context.beginPath();
+      this.context.moveTo(start.x, start.y);
+      this.context.lineTo(end.x, end.y);
+      this.context.stroke();
     }
 
     if (face.length > 0) {
@@ -101,12 +116,17 @@ export class LandmarkOverlay {
 
     this.context.globalAlpha = 1;
 
+    // Reported per part from what was actually drawable, so a chip going red means "not
+    // seen" rather than "the pose model happened to return an array".
+    const seen = (index: number) => isVisible(pose[index]);
     return {
       hands: frame.hands.length > 0,
       face: face.length > 0,
-      neck: pose.length > 0,
-      torso: pose.length > 0,
-      arms: pose.length > 0,
+      neck: neck !== null,
+      torso: seen(PosePoint.leftShoulder) && seen(PosePoint.rightShoulder),
+      arms:
+        (seen(PosePoint.leftElbow) && seen(PosePoint.leftWrist)) ||
+        (seen(PosePoint.rightElbow) && seen(PosePoint.rightWrist)),
     };
   }
 
@@ -122,7 +142,10 @@ export class LandmarkOverlay {
     for (const [from, to] of edges) {
       const a = points[from];
       const b = points[to];
-      if (!a || !b) continue;
+      // Both ends must be genuinely seen. MediaPipe extrapolates pose landmarks it cannot
+      // find rather than omitting them, so drawing unconditionally paints invented hips
+      // below the picture and arms reaching for the frame edges.
+      if (!isVisible(a) || !isVisible(b) || !a || !b) continue;
       const start = project(a.x, a.y);
       const end = project(b.x, b.y);
       this.context.beginPath();
