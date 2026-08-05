@@ -32,6 +32,7 @@ export function renderApp(root: HTMLElement): void {
       <button class="button" id="toggle" type="button">Empezar a leer</button>
       <button class="button button--quiet" id="undo" type="button">Borrar último</button>
       <button class="button button--quiet" id="clear" type="button">Limpiar</button>
+      <button class="button button--quiet" id="flip" type="button">Cámara trasera</button>
     </div>
 
     <p class="status" id="status" role="status"></p>
@@ -142,6 +143,29 @@ export function renderApp(root: HTMLElement): void {
   must<HTMLButtonElement>(root, '#clear').addEventListener('click', () => {
     recognize.clear();
     render(recognize.current.toText(), []);
+  });
+
+  const flip = must<HTMLButtonElement>(root, '#flip');
+  flip.addEventListener('click', async () => {
+    const next = container.source.camera === 'user' ? 'environment' : 'user';
+    flip.disabled = true;
+    try {
+      await container.source.useCamera(next);
+      // Only the selfie view is mirrored. Un-mirroring the rear camera matters beyond looks:
+      // the overlay is mirrored to match the video, so the two must agree or the skeleton
+      // lands on the wrong side of the screen.
+      const mirrored = next === 'user';
+      video.classList.toggle('is-flipped', !mirrored);
+      overlayCanvas.classList.toggle('is-flipped', !mirrored);
+      flip.textContent = mirrored ? 'Cámara trasera' : 'Cámara frontal';
+      status.textContent = mirrored
+        ? 'Cámara frontal: para signar tú.'
+        : 'Cámara trasera: para leer a quien tienes delante.';
+    } catch {
+      status.textContent = 'No se pudo cambiar de cámara.';
+    } finally {
+      flip.disabled = false;
+    }
   });
 
   new StoragePanel(must<HTMLElement>(root, '#storage'), {

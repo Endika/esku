@@ -367,3 +367,9 @@ body {
   font-size: 0.78rem;
   margin-top: 10px;
 }
+
+/* The rear camera shows the world as it is; only the selfie view gets mirrored. */
+.stage__video.is-flipped,
+.stage__overlay.is-flipped {
+  transform: none;
+}
