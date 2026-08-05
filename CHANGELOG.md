@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.0](https://github.com/Endika/esku/compare/v1.5.0...v1.6.0) (2026-08-05)
+
+
+### Features
+
+* show face, neck, torso and arms tracking on camera ([a700811](https://github.com/Endika/esku/commit/a700811bc04383cc609456ee867563d6f8ee26a1))
+
 ## [1.5.0](https://github.com/Endika/esku/compare/v1.4.0...v1.5.0) (2026-08-05)
 
 
