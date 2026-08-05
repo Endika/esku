@@ -5,6 +5,7 @@ import type { ISignClassifier } from '@domain/recognition/services/ISignClassifi
 import { IndexedDBCustomSignRepository } from '@infrastructure/persistence/indexeddb/IndexedDBCustomSignRepository';
 import { HandshapeAlphabetClassifier } from '@infrastructure/recognition/HandshapeAlphabetClassifier';
 import { PrototypeSignClassifier } from '@infrastructure/recognition/PrototypeSignClassifier';
+import { VocabularySignClassifier } from '@infrastructure/recognition/VocabularySignClassifier';
 import { EngineCacheStorage } from '@infrastructure/storage/EngineCacheStorage';
 import { MediaPipeLandmarkSource } from '@infrastructure/vision/MediaPipeLandmarkSource';
 
@@ -19,6 +20,7 @@ export class Container {
   readonly teach = new TeachCustomSignUseCase(this.customSigns);
   readonly manageCustomSigns = new ManageCustomSignsUseCase(this.customSigns);
   readonly engineStorage = new EngineCacheStorage();
+  readonly vocabulary: VocabularySignClassifier;
   readonly classifiers: readonly ISignClassifier[];
   readonly recognize: RecognizeSignsUseCase;
 
@@ -32,7 +34,12 @@ export class Container {
       maxHands: 2,
     });
 
-    this.classifiers = [new HandshapeAlphabetClassifier(), this.taught];
+    this.vocabulary = new VocabularySignClassifier(
+      `${base}models/lse-vocabulary.json`,
+      `${base}models/lse-vocabulary.bin`,
+    );
+
+    this.classifiers = [new HandshapeAlphabetClassifier(), this.vocabulary, this.taught];
     this.recognize = new RecognizeSignsUseCase(this.source, this.classifiers);
   }
 }

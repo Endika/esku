@@ -40,12 +40,17 @@ export function renderApp(root: HTMLElement): void {
     <div id="storage"></div>
 
     <section class="card">
-      <h2 class="card__title">Deletreo, por ahora</h2>
+      <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
       <p class="card__body">
-        Reconoce las letras del dactilológico que se distinguen por la forma de la mano.
-        Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>: unas se
-        trazan con movimiento y otras dependen de la orientación de la palma. El vocabulario
-        de signos completos llega con el modelo entrenado.
+        <strong>Vocabulario LSE:</strong> 238 signos de ámbito sanitario, entrenados sobre
+        SWL-LSE. Acierta el signo exacto en torno a <strong>2 de cada 3 veces</strong>, y está
+        entre sus tres primeras opciones en <strong>8 de cada 10</strong>. Es un modelo real,
+        no infalible: revisa el texto antes de darlo por bueno.
+      </p>
+      <p class="card__body" style="margin-top: 10px">
+        <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
+        vocabulario. Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>:
+        unas se trazan con movimiento y otras dependen de la orientación de la palma.
       </p>
     </section>
 
@@ -103,6 +108,9 @@ export function renderApp(root: HTMLElement): void {
     // The engine is ~29 MB on first run and cached after; say so rather than look frozen.
     status.textContent = 'Preparando el motor de reconocimiento…';
     try {
+      // Both engines load before the camera opens, so the first sign is already recognisable
+      // rather than silently ignored while weights are still arriving.
+      await Promise.all([container.vocabulary.load(), container.taught.load()]);
       await recognize.start(({ transcript, candidates, frame }) => {
         render(transcript.toText(), candidates);
         const [state, message] = describeTracking(frame.hands.length, candidates.length > 0);
@@ -142,7 +150,11 @@ export function renderApp(root: HTMLElement): void {
     clear: () => container.engineStorage.clear(),
     // Loading through the real source downloads exactly the WASM variant this browser will
     // use, rather than guessing and fetching both the SIMD and no-SIMD builds.
-    preload: () => container.source.load(),
+    // Both engines, or "descargar ahora" would leave the vocabulary weights to arrive later
+    // on whatever connection the user happened to be avoiding.
+    preload: async () => {
+      await Promise.all([container.source.load(), container.vocabulary.load()]);
+    },
   });
 
   new TeachSignPanel(must<HTMLElement>(root, '#teach'), {
