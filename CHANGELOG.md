@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Endika/esku/compare/v1.0.0...v1.1.0) (2026-08-05)
+
+
+### Features
+
+* draw the tracked hand skeleton over the camera ([2f4dfc8](https://github.com/Endika/esku/commit/2f4dfc84fbccbd4abc28ce522a789e8b4f2b4137))
+
 ## 1.0.0 (2026-08-05)
 
 
