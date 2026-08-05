@@ -4,6 +4,14 @@ const CACHE_NAME = 'esku-engine';
 export interface EngineStorageReport {
   readonly cachedBytes: number;
   readonly entries: number;
+  /**
+   * Whether the WASM runtime made it into the cache, not just the model weights.
+   *
+   * Without it the app still works online — the browser refetches — but the offline promise
+   * on the front page is false. Worth surfacing rather than leaving as a silent gap between
+   * "downloaded" and "usable on a plane".
+   */
+  readonly hasRuntime: boolean;
 }
 
 /**
@@ -23,18 +31,20 @@ export class EngineCacheStorage {
   }
 
   async report(): Promise<EngineStorageReport> {
-    if (!this.isSupported()) return { cachedBytes: 0, entries: 0 };
+    if (!this.isSupported()) return { cachedBytes: 0, entries: 0, hasRuntime: false };
 
     const cache = await caches.open(CACHE_NAME);
     const requests = await cache.keys();
 
     let cachedBytes = 0;
+    let hasRuntime = false;
     for (const request of requests) {
+      if (new URL(request.url).pathname.includes('/wasm/')) hasRuntime = true;
       const response = await cache.match(request);
       if (response) cachedBytes += await sizeOf(response);
     }
 
-    return { cachedBytes, entries: requests.length };
+    return { cachedBytes, entries: requests.length, hasRuntime };
   }
 
   /** Returns false when there was nothing cached to begin with. */

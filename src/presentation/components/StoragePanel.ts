@@ -2,7 +2,7 @@ import { formatBytes } from '@infrastructure/storage/EngineCacheStorage';
 
 export interface StoragePanelPorts {
   isSupported(): boolean;
-  report(): Promise<{ cachedBytes: number; entries: number }>;
+  report(): Promise<{ cachedBytes: number; entries: number; hasRuntime: boolean }>;
   clear(): Promise<boolean>;
   /** Fetches the engine now, so the first real use is not the first download. */
   preload(): Promise<void>;
@@ -31,7 +31,7 @@ export class StoragePanel {
       <section class="card">
         <h2 class="card__title">Espacio en el dispositivo</h2>
         <p class="card__body">
-          El motor de reconocimiento ocupa unos 41 MB y se guarda la primera vez que lo usas,
+          El motor de reconocimiento son unos 30 MB y se guarda la primera vez que lo usas,
           para que después funcione sin conexión. Puedes descargarlo ahora o liberarlo cuando
           quieras: se volverá a bajar solo la próxima vez que enciendas la cámara.
         </p>
@@ -108,8 +108,18 @@ export class StoragePanel {
       return;
     }
 
-    const { cachedBytes, entries } = await this.ports.report();
-    figure.textContent =
-      entries === 0 ? 'Nada guardado todavía' : `${formatBytes(cachedBytes)} guardados`;
+    const { cachedBytes, entries, hasRuntime } = await this.ports.report();
+
+    if (entries === 0) {
+      figure.textContent = 'Nada guardado todavía';
+      return;
+    }
+
+    figure.textContent = `${formatBytes(cachedBytes)} guardados`;
+    if (!hasRuntime) {
+      // Weights without the runtime that executes them: online this is invisible, offline it
+      // is the difference between working and not.
+      this.say('Faltan los ficheros del motor. Sin conexión no funcionará hasta descargarlo.');
+    }
   }
 }
