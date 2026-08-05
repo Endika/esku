@@ -45,10 +45,10 @@ export class PrototypeSignClassifier implements ISignClassifier {
   async load(): Promise<void> {
     const stored = await this.repository.findAll();
 
-    // Signatures gained the wrist position when the trained vocabulary model landed, so
-    // prototypes recorded before that are a different length and can never match. Dropping
-    // them here means the sign simply disappears from the list and can be re-taught, rather
-    // than sitting there looking fine and never firing.
+    // A prototype of the wrong length can never match, so it is dropped rather than left in
+    // the list looking fine and never firing. This should now be rare: taught signs have
+    // their own signature, frozen independently of the trained model, precisely so that
+    // improving the model stops invalidating what the user recorded.
     this.signs = stored.filter((sign) =>
       sign.prototypes.every((prototype) => prototype.length === SIGNATURE_LENGTH),
     );

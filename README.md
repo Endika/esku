@@ -15,7 +15,7 @@ Three engines answer through one port, so the app does not care which one produc
 | Engine | What it reads | Where it comes from |
 | --- | --- | --- |
 | **Alphabet** | Fingerspelled letters (dactilológico). Spell anything, letter by letter. | Geometric handshape rules — no training data needed. |
-| **Vocabulary** | Whole LSE signs, one word each. | GRU trained on [SWL-LSE](https://zenodo.org/records/13691887): 238 health-domain concepts. **63% top-1, 83% top-3** on the dataset's own held-out test split. |
+| **Vocabulary** | Whole LSE signs, one word each. | GRU trained on [SWL-LSE](https://zenodo.org/records/13691887): 238 health-domain concepts. **74% top-1, 87% top-3** on the dataset's own held-out test split. |
 | **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ recordings, stored in IndexedDB on your device. Working now. |
 
 ### What it does not do
@@ -29,8 +29,31 @@ word-level output honestly is a design decision, not a missing feature.
 
 ### How good is the vocabulary model, really
 
-63% top-1 and 83% top-3 on 598 held-out samples across 238 classes — against a 0.4% random
+74% top-1 and 87% top-3 on 598 held-out samples across 238 classes — against a 0.4% random
 baseline. Useful, not authoritative. The UI says so, and the transcript is editable.
+
+Every input was measured rather than assumed. Starting from hands alone:
+
+| Input | top-1 | top-3 |
+| --- | --- | --- |
+| hands only, 8 frames | 0.632 | 0.826 |
+| + hand position relative to the **torso** | 0.689 | 0.836 |
+| + 16 frames instead of 8 | 0.719 | 0.849 |
+| + **torso and head** orientation | 0.729 | 0.865 |
+| + **facial expression**, 6 scalars | **0.741** | **0.870** |
+
+Rejected, with numbers rather than opinions: frame-to-frame motion deltas (0.666), raw face
+coordinates instead of derived ratios (0.702), input augmentation (0.699). Dropping depth
+entirely costs 0.003 — MediaPipe's `z` is inferred from one camera rather than measured, so
+it carries far less than it looks like it should.
+
+Why the body helps so much: "hand at chin height" is a fixed number in body coordinates and
+a moving one in image coordinates. Normalising against shoulder width makes it invariant to
+how far the signer stands from the camera, and location is phonemic in LSE.
+
+Why six face scalars beat sixty face coordinates: with ~27 examples per class, coordinates
+the model would have to derive eyebrow-raise and mouth-openness from are capacity spent
+memorising faces.
 
 Those numbers come from SWL-LSE's own train/val/test split, never from data the model saw.
 `tools/train/train.py` prints them on every run and writes them into the shipped manifest, so
@@ -73,11 +96,18 @@ index point against a Y at 0.962 — no threshold separates those. Distance over
 normalised coordinates gives 0.10 and 0.25 for the same pairs. If taught-sign recognition
 ever starts matching everything, check that this has not been "simplified" back to cosine.
 
-**Normalisation must match training.** `windowSignature` and `tools/train/features.py` must
-produce byte-identical layouts. A model trained on one and fed the other predicts noise
+**Two signatures, on purpose.** `vocabularySignature` feeds the trained model and changes
+whenever the model does. `windowSignature` describes a *taught* sign and is frozen, because
+the user's own recordings are stored against it — they used to share one function, and every
+model improvement invalidated everything the user had taught.
+
+**Normalisation must match training.** `vocabularySignature` and
+`tools/train/vocabulary_features.py` must produce byte-identical layouts, and
+`vocabularySignature.test.ts` checks that element by element against a fixture the trainer
+writes. A model trained on one and fed the other predicts noise
 silently rather than failing — the loader throws on a length mismatch, but a same-length
-reordering would slip through. If recognition degrades for no visible reason, diff those two
-files first.
+reordering would slip through the loader, which is exactly what the parity test is for. If
+recognition degrades for no visible reason, diff those two files first.
 
 **Known limitation in taught signs.** The signature carries the wrist position because LSE
 gives location meaning, but it is 3 floats out of 66 per hand, so plain distance matching

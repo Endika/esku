@@ -13,7 +13,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from features import SIGNATURE_FRAMES, SIGNATURE_LENGTH
+from vocabulary_features import FRAMES as SIGNATURE_FRAMES
+from vocabulary_features import SIGNATURE_LENGTH, vocabulary_signature
 
 DATA = Path(__file__).parent / "data"
 ARTIFACTS = Path(__file__).parent / "artifacts"
@@ -150,8 +151,18 @@ def export_reference_vector(model: nn.Module) -> None:
 
 
 def load(split: str) -> tuple[np.ndarray, np.ndarray]:
-    bundle = np.load(DATA / f"{split}.npz", allow_pickle=True)
-    return bundle["x"], bundle["y"]
+    """Build signatures from the cached raw landmarks, so features can change freely."""
+    bundle = np.load(DATA / f"{split}_raw.npz", allow_pickle=True)
+    count = int(bundle["n"][0])
+    x = np.stack(
+        [
+            vocabulary_signature(
+                bundle[f"r{i}"], bundle[f"l{i}"], bundle[f"p{i}"], bundle[f"f{i}"]
+            )
+            for i in range(count)
+        ]
+    )
+    return x, bundle["y"]
 
 
 def accuracy(model: nn.Module, x: torch.Tensor, y: torch.Tensor) -> tuple[float, float]:
