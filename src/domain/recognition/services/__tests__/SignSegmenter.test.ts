@@ -69,6 +69,40 @@ describe('SignSegmenter', () => {
     expect(run(segmenter, frames)).toHaveLength(0);
   });
 
+  it('emits windows while the hand keeps moving, without ever holding still', () => {
+    // The failure that made the app look broken on video: a fluent signer never pauses, so
+    // waiting for stillness closed nothing at all and the vocabulary engine was never asked.
+    // Measured at 0 windows over 300 frames before the maxFrames cap existed.
+    const segmenter = new SignSegmenter(OPTIONS);
+    const continuous = Array.from({ length: 200 }, (_, i) =>
+      buildFrame(
+        i * 33,
+        buildHand({ offset: { x: Math.sin(i / 3) * 0.12, y: Math.cos(i / 4) * 0.12 } }),
+      ),
+    );
+
+    expect(run(segmenter, continuous).length).toBeGreaterThan(0);
+  });
+
+  it('caps a forced window at maxFrames', () => {
+    const segmenter = new SignSegmenter({ ...OPTIONS, maxFrames: 12 });
+    const continuous = Array.from({ length: 120 }, (_, i) =>
+      buildFrame(i * 33, buildHand({ offset: { x: Math.sin(i / 3) * 0.12, y: 0 } })),
+    );
+
+    for (const window of run(segmenter, continuous)) {
+      expect(window.length).toBeLessThanOrEqual(12);
+    }
+  });
+
+  it('still prefers stillness as the boundary when the signer does pause', () => {
+    // Isolated signs must not be chopped at maxFrames when a real boundary exists first.
+    const segmenter = new SignSegmenter(OPTIONS);
+    const frames = [...movingFrames(8), ...stillFrames(4, 8, 0.35)];
+    const [window] = run(segmenter, frames);
+    expect(window?.length).toBeLessThan(OPTIONS.maxFrames);
+  });
+
   it('never grows a window past maxFrames', () => {
     const segmenter = new SignSegmenter({ ...OPTIONS, maxFrames: 10 });
     const frames = [...movingFrames(30), ...stillFrames(4, 30, 1.45)];
