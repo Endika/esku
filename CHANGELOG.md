@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/Endika/esku/compare/v1.3.0...v1.4.0) (2026-08-05)
+
+
+### Features
+
+* recognise 238 LSE signs with a trained model ([ab4e20a](https://github.com/Endika/esku/commit/ab4e20ac151ba50bea73b6d05d3765e485d989f0))
+
 ## [1.3.0](https://github.com/Endika/esku/compare/v1.2.0...v1.3.0) (2026-08-05)
 
 
