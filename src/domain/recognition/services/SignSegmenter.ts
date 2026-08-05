@@ -9,7 +9,14 @@ export interface SegmenterOptions {
   readonly settleFrames: number;
   /** Shortest accepted sign; below this it is camera noise, not a sign. */
   readonly minFrames: number;
-  /** Longest window kept. Bounds memory and matches the model's input length. */
+  /**
+   * Longest a window may run before it is emitted anyway.
+   *
+   * This is what makes continuous signing work at all. Waiting for stillness assumes the
+   * signer pauses between signs, which is true of dictionary recordings and false of anyone
+   * signing fluently — measured at 0 windows closed over 300 frames of continuous motion,
+   * meaning the vocabulary engine was never once asked.
+   */
   readonly maxFrames: number;
 }
 
@@ -23,9 +30,13 @@ export const DEFAULT_SEGMENTER_OPTIONS: SegmenterOptions = {
 /**
  * Turns a continuous landmark stream into discrete sign windows.
  *
- * The rule is motion-energy gating: a sign starts when the hand begins moving, and ends
- * once it holds still for `settleFrames`. Without this the classifier would fire on every
- * frame, including the transitions *between* signs, which are not signs at all.
+ * Two rules, and the second exists because the first is not enough. Motion-energy gating
+ * closes a window once the hand holds still, which is how isolated signs are delimited and
+ * how the training data was recorded. A fluent signer never holds still, so a hard cap at
+ * `maxFrames` emits the window anyway.
+ *
+ * Without the cap, continuous signing produced no windows at all and the vocabulary engine
+ * was never invoked — the app looked broken rather than inaccurate.
  *
  * Deliberately a pure state machine over frames — no timers, no clock, no I/O — so its
  * behaviour is reproducible in tests by pushing a scripted frame sequence.
@@ -47,12 +58,13 @@ export class SignSegmenter {
 
     const motion = this.motionSince(frame);
     this.window.push(frame);
-    if (this.window.length > this.options.maxFrames) this.window.shift();
 
     if (motion > this.options.motionThreshold) {
       this.active = true;
       this.stillFrames = 0;
-      return null;
+      // Still moving, but the window is full: emit it rather than let a fluent signer run
+      // forever without ever being classified.
+      return this.window.length >= this.options.maxFrames ? this.close() : null;
     }
 
     if (!this.active) {
@@ -60,6 +72,8 @@ export class SignSegmenter {
       if (this.window.length > this.options.minFrames) this.window.shift();
       return null;
     }
+
+    if (this.window.length >= this.options.maxFrames) return this.close();
 
     this.stillFrames += 1;
     return this.stillFrames >= this.options.settleFrames ? this.close() : null;
