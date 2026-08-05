@@ -28,7 +28,7 @@
     "icons": "pwa-assets-generator"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "^0.10.21",
+    "@mediapipe/tasks-vision": "^1.0.1",
     "onnxruntime-web": "^1.23.0"
   },
   "devDependencies": {
