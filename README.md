@@ -15,8 +15,8 @@ Three engines answer through one port, so the app does not care which one produc
 | Engine | What it reads | Where it comes from |
 | --- | --- | --- |
 | **Alphabet** | Fingerspelled letters (dactilológico). Spell anything, letter by letter. | Geometric handshape rules — no training data needed. |
-| **Vocabulary** | Whole LSE signs, one word each. | ONNX model trained on [SWL-LSE](https://zenodo.org/records/13691887): 300 classes, ~180 concepts after merging variants. Health domain. |
-| **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ examples you give it, stored on-device. |
+| **Vocabulary** | Whole LSE signs, one word each. | ONNX model trained on [SWL-LSE](https://zenodo.org/records/13691887): 300 classes, ~180 concepts after merging variants. Health domain. **Not built yet.** |
+| **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ recordings, stored in IndexedDB on your device. Working now. |
 
 ### What it does not do
 
@@ -46,8 +46,15 @@ src/
 
 The domain is where the interesting logic lives and it is fully testable without a camera:
 `SignSegmenter` decides where one sign ends and the next begins, `CandidateStabilizer` stops
-a jittering classifier from spelling `AAAABAAAA`, and `handShape` reduces 21 landmarks to
-scale- and handedness-invariant ratios.
+a jittering classifier from spelling `AAAABAAAA`, `handShape` reduces 21 landmarks to scale-
+and handedness-invariant ratios, and `windowSignature` collapses a whole sign into one
+fixed-length vector so two performances of it can be compared.
+
+**Signature similarity is Euclidean, not cosine, and that is load-bearing.** Every hand
+shares the same gross structure, so cosine scored a fist against an open hand at 0.965 and an
+index point against a Y at 0.962 — no threshold separates those. Distance over already
+normalised coordinates gives 0.10 and 0.25 for the same pairs. If taught-sign recognition
+ever starts matching everything, check that this has not been "simplified" back to cosine.
 
 **Normalisation must match training.** `normalizeHand` mirrors what `tools/train` applies to
 the dataset. A model trained on normalised coordinates and fed raw ones predicts noise

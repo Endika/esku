@@ -1,6 +1,10 @@
+import { ManageCustomSignsUseCase } from '@application/use-cases/ManageCustomSignsUseCase';
 import { RecognizeSignsUseCase } from '@application/use-cases/RecognizeSignsUseCase';
+import { TeachCustomSignUseCase } from '@application/use-cases/TeachCustomSignUseCase';
 import type { ISignClassifier } from '@domain/recognition/services/ISignClassifier';
+import { IndexedDBCustomSignRepository } from '@infrastructure/persistence/indexeddb/IndexedDBCustomSignRepository';
 import { HandshapeAlphabetClassifier } from '@infrastructure/recognition/HandshapeAlphabetClassifier';
+import { PrototypeSignClassifier } from '@infrastructure/recognition/PrototypeSignClassifier';
 import { MediaPipeLandmarkSource } from '@infrastructure/vision/MediaPipeLandmarkSource';
 
 /**
@@ -9,6 +13,10 @@ import { MediaPipeLandmarkSource } from '@infrastructure/vision/MediaPipeLandmar
  */
 export class Container {
   readonly source: MediaPipeLandmarkSource;
+  readonly customSigns = new IndexedDBCustomSignRepository();
+  readonly taught = new PrototypeSignClassifier(this.customSigns);
+  readonly teach = new TeachCustomSignUseCase(this.customSigns);
+  readonly manageCustomSigns = new ManageCustomSignsUseCase(this.customSigns);
   readonly classifiers: readonly ISignClassifier[];
   readonly recognize: RecognizeSignsUseCase;
 
@@ -22,7 +30,7 @@ export class Container {
       maxHands: 2,
     });
 
-    this.classifiers = [new HandshapeAlphabetClassifier()];
+    this.classifiers = [new HandshapeAlphabetClassifier(), this.taught];
     this.recognize = new RecognizeSignsUseCase(this.source, this.classifiers);
   }
 }

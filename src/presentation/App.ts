@@ -2,6 +2,7 @@ import { Container } from '@bootstrap/Container';
 import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
 import { UNSUPPORTED_LETTERS } from '@infrastructure/recognition/packs/lseAlphabet';
 import { LandmarkOverlay, type OverlayState } from '@presentation/components/LandmarkOverlay';
+import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
 
 declare const __APP_VERSION__: string;
 
@@ -33,6 +34,8 @@ export function renderApp(root: HTMLElement): void {
     </div>
 
     <p class="status" id="status" role="status"></p>
+
+    <div id="teach"></div>
 
     <section class="card">
       <h2 class="card__title">Deletreo, por ahora</h2>
@@ -129,6 +132,24 @@ export function renderApp(root: HTMLElement): void {
   must<HTMLButtonElement>(root, '#clear').addEventListener('click', () => {
     recognize.clear();
     render(recognize.current.toText(), []);
+  });
+
+  new TeachSignPanel(must<HTMLElement>(root, '#teach'), {
+    captureWindow: () => recognize.captureWindow(),
+    cancelCapture: () => {
+      recognize.cancelCapture();
+    },
+    isCameraRunning: () => running,
+    save: async (text, examples) => {
+      await container.teach.execute(text, examples);
+      // Reload prototypes so the sign is recognised immediately, not after a restart.
+      await container.taught.refresh();
+    },
+    list: () => container.manageCustomSigns.list(),
+    remove: async (id) => {
+      await container.manageCustomSigns.delete(id);
+      await container.taught.refresh();
+    },
   });
 }
 

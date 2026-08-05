@@ -37,6 +37,8 @@ export class RecognizeSignsUseCase {
   private listener: RecognitionListener | null = null;
   /** Guards against overlapping async classify calls piling up behind a slow frame. */
   private busy = false;
+  /** Set while teaching: the next completed sign is handed over instead of transcribed. */
+  private capture: ((window: readonly LandmarkFrame[]) => void) | null = null;
 
   constructor(
     private readonly source: ILandmarkSource,
@@ -75,6 +77,27 @@ export class RecognizeSignsUseCase {
     return this.transcript;
   }
 
+  /**
+   * Resolves with the next completed sign instead of transcribing it.
+   *
+   * Recording reuses the live segmenter rather than a separate timed capture, so a taught
+   * example is delimited exactly the way a recognised sign will be. Capturing on a stopwatch
+   * would train the app on windows it never sees at recognition time.
+   */
+  captureWindow(): Promise<readonly LandmarkFrame[]> {
+    return new Promise((resolve) => {
+      this.capture = resolve;
+    });
+  }
+
+  cancelCapture(): void {
+    this.capture = null;
+  }
+
+  get isCapturing(): boolean {
+    return this.capture !== null;
+  }
+
   private async onFrame(frame: LandmarkFrame): Promise<void> {
     if (frame.hands.length === 0) {
       // A hand leaving frame is a deliberate boundary: it lets the same letter repeat.
@@ -82,6 +105,18 @@ export class RecognizeSignsUseCase {
     }
 
     const closedWindow = this.segmenter.push(frame);
+
+    if (this.capture) {
+      // Teaching: hand the finished sign over, and transcribe nothing meanwhile — the user
+      // is demonstrating a sign, not dictating.
+      if (closedWindow) {
+        const deliver = this.capture;
+        this.capture = null;
+        deliver(closedWindow);
+      }
+      this.emit([], frame);
+      return;
+    }
 
     if (this.busy) return;
     this.busy = true;

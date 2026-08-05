@@ -276,3 +276,82 @@ body {
 .footnote a {
   color: inherit;
 }
+
+/* --- Teach-a-sign --- */
+
+.field {
+  display: block;
+  margin: 16px 0 12px;
+}
+
+.field__label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 6px;
+}
+
+.field__input {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font: inherit;
+  padding: 12px 14px;
+  min-height: 48px;
+}
+
+.field__input:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* One dot per recording, so progress toward the minimum is visible at a glance. */
+.takes {
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 4px;
+}
+
+.take {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+}
+
+.take--done {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.button--small {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.signs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.signs__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.signs__item:last-child {
+  border-bottom: none;
+}
+
+.signs__empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
