@@ -86,15 +86,28 @@ export class EngineCacheStorage {
 
     const cache = await caches.open(CACHE_NAME);
     const urls = this.engineUrls();
+    const failed: string[] = [];
     let done = 0;
 
     for (const url of urls) {
       if (!(await cache.match(url))) {
-        const response = await fetch(url);
-        if (response.ok) await cache.put(url, response.clone());
+        const response = await fetch(url).catch(() => null);
+        if (response?.ok) {
+          await cache.put(url, response.clone());
+        } else {
+          failed.push(url);
+        }
       }
-      done += 1;
-      onProgress?.(done, urls.length);
+      // Counted only once the file is genuinely in the cache. Advancing on every attempt
+      // would report "7 of 7" for a download where nothing was stored.
+      if (!failed.includes(url)) {
+        done += 1;
+        onProgress?.(done, urls.length);
+      }
+    }
+
+    if (failed.length > 0) {
+      throw new Error(`Could not cache ${failed.length} of ${urls.length} engine files`);
     }
   }
 
@@ -123,19 +136,22 @@ export class EngineCacheStorage {
 }
 
 /**
- * Content-Length first, body second.
+ * The size on disk, measured from the body rather than read off a header.
  *
- * Reading the blob is exact but pulls the whole 11 MB WASM into memory just to measure it;
- * the header avoids that whenever the server sent one, which GitHub Pages does.
+ * `Content-Length` looks like the cheap answer and is the wrong one: GitHub Pages gzips
+ * everything, so the header carries the *transfer* size. Summing it reported 19 MB for an
+ * engine that occupies 30 MB — and since the cache stores bodies decompressed, 19 MB was an
+ * answer to a question this panel is not asking. It is titled "space on your device".
+ *
+ * Reading the blob costs a pass over ~30 MB, which is acceptable on a panel opened by hand.
  */
 async function sizeOf(response: Response): Promise<number> {
-  const declared = Number(response.headers.get('content-length'));
-  if (Number.isFinite(declared) && declared > 0) return declared;
-
   try {
     return (await response.clone().blob()).size;
   } catch {
-    return 0;
+    // Some browsers refuse to clone an opaque response; the header is better than nothing.
+    const declared = Number(response.headers.get('content-length'));
+    return Number.isFinite(declared) && declared > 0 ? declared : 0;
   }
 }
 
