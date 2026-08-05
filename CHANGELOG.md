@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Endika/esku/compare/v1.1.0...v1.2.0) (2026-08-05)
+
+
+### Features
+
+* teach the app your own signs and recognise them offline ([2fb4fb7](https://github.com/Endika/esku/commit/2fb4fb73c7eb24587250661812d0369bf686be48))
+
 ## [1.1.0](https://github.com/Endika/esku/compare/v1.0.0...v1.1.0) (2026-08-05)
 
 
