@@ -52,11 +52,23 @@ export function buildHand(options: HandOptions = {}): HandLandmarks {
     points[chain.mcp] = { x: baseX, y: baseY, z: 0 };
 
     const curl = curls[finger] ?? 0;
-    chain.joints.forEach((joint, segment) => {
-      const reach = 0.06 * (segment + 1);
-      // A curled finger travels back down toward the wrist instead of away from it.
-      const direction = 1 - 2 * curl;
-      points[joint] = { x: baseX, y: baseY - reach * direction, z: 0 };
+
+    // A real finger bends at the middle joint: the PIP stays out where the knuckle put it,
+    // and only the segments beyond it swing back toward the palm. Laying all three joints on
+    // one line instead — however far "back" it points — keeps the joint angle at 180° and
+    // makes every handshape measure as fully straight.
+    const pip = { x: baseX, y: baseY - 0.06, z: 0 };
+    points[chain.joints[0]!] = pip;
+
+    const theta = curl * Math.PI;
+    const direction = { x: Math.sin(theta), y: -Math.cos(theta) };
+    chain.joints.slice(1).forEach((joint, segment) => {
+      const reach = 0.05 * (segment + 1);
+      points[joint] = {
+        x: pip.x + direction.x * reach,
+        y: pip.y + direction.y * reach,
+        z: 0,
+      };
     });
   });
 
