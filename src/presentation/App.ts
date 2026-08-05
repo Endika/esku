@@ -1,7 +1,14 @@
 import { Container } from '@bootstrap/Container';
 import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
 import { UNSUPPORTED_LETTERS } from '@infrastructure/recognition/packs/lseAlphabet';
-import { LandmarkOverlay, type OverlayState } from '@presentation/components/LandmarkOverlay';
+import {
+  LandmarkOverlay,
+  type OverlayState,
+  PART_COLOURS,
+  PART_LABELS,
+  PART_ORDER,
+  type PartPresence,
+} from '@presentation/components/LandmarkOverlay';
 import { StoragePanel } from '@presentation/components/StoragePanel';
 import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
 
@@ -25,6 +32,16 @@ export function renderApp(root: HTMLElement): void {
       </p>
       <p class="stage__hint" id="hint" hidden></p>
     </div>
+
+    <ul class="parts" id="parts">
+      ${PART_ORDER.map(
+        (part) => `
+        <li class="part" data-part="${part}">
+          <span class="part__dot" style="--part: ${PART_COLOURS[part]}"></span>
+          ${PART_LABELS[part]}
+        </li>`,
+      ).join('')}
+    </ul>
 
     <div class="transcript" id="transcript" aria-live="polite"></div>
 
@@ -69,9 +86,19 @@ export function renderApp(root: HTMLElement): void {
   const toggle = must<HTMLButtonElement>(root, '#toggle');
   const status = must<HTMLElement>(root, '#status');
 
+  const parts = must<HTMLElement>(root, '#parts');
   const container = new Container(video);
   const { recognize } = container;
   const overlay = new LandmarkOverlay(overlayCanvas, video);
+
+  /** Green when a part is being tracked, red when it is not — at a glance, per part. */
+  const showPresence = (presence: PartPresence | null) => {
+    for (const part of PART_ORDER) {
+      const chip = parts.querySelector<HTMLElement>(`[data-part="${part}"]`);
+      chip?.classList.toggle('part--on', presence?.[part] === true);
+      chip?.classList.toggle('part--off', presence !== null && presence[part] === false);
+    }
+  };
   let running = false;
 
   const render = (text: string, candidates: readonly { gloss: { text: string } }[]) => {
@@ -101,6 +128,7 @@ export function renderApp(root: HTMLElement): void {
       video.classList.remove('is-live');
       overlayCanvas.classList.remove('is-live');
       overlay.clear();
+      showPresence(null);
       status.textContent = 'Cámara apagada.';
       return;
     }
@@ -115,7 +143,7 @@ export function renderApp(root: HTMLElement): void {
       await recognize.start(({ transcript, candidates, frame }) => {
         render(transcript.toText(), candidates);
         const [state, message] = describeTracking(frame.hands.length, candidates.length > 0);
-        overlay.draw(frame, state);
+        showPresence(overlay.draw(frame, state));
         status.textContent = message;
       });
       running = true;
