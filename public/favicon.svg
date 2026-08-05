@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Esku">
+  <title>Esku</title>
+  <defs>
+    <linearGradient id="esku-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#5B21B6"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#esku-bg)"/>
+
+  <!-- Four fingers at uneven heights: a hand read as a waveform, because the hand is the voice. -->
+  <g fill="#FFFFFF">
+    <rect x="150" y="130" width="54" height="200" rx="27"/>
+    <rect x="224" y="90"  width="54" height="240" rx="27"/>
+    <rect x="298" y="115" width="54" height="215" rx="27"/>
+    <rect x="372" y="165" width="54" height="165" rx="27"/>
+
+    <!-- Thumb, angled off the palm so the silhouette reads as a hand and not a bar chart. -->
+    <rect x="94" y="198" width="52" height="140" rx="26" transform="rotate(-34 120 268)"/>
+
+    <!-- Two text lines: what comes out the other side. -->
+    <rect x="150" y="366" width="276" height="28" rx="14"/>
+    <rect x="150" y="414" width="168" height="28" rx="14" fill-opacity="0.6"/>
+  </g>
+</svg>
