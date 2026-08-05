@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.0](https://github.com/Endika/esku/compare/v1.6.0...v1.7.0) (2026-08-05)
+
+
+### Features
+
+* read torso, head and face to recognise signs better ([99d79c7](https://github.com/Endika/esku/commit/99d79c766632073e9f34c585c594beed7791dfe0))
+
 ## [1.6.0](https://github.com/Endika/esku/compare/v1.5.0...v1.6.0) (2026-08-05)
 
 
