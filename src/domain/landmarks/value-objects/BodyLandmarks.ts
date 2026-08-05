@@ -18,7 +18,13 @@ export const PosePoint = {
   rightHip: 24,
 } as const;
 
-/** Drawn as the torso: the shoulder line and the box down to the hips. */
+/**
+ * Drawn as the torso: the shoulder line, and the box down to the hips when the hips are
+ * genuinely in shot.
+ *
+ * A signer is usually framed from the chest up, so the hip edges are dropped far more often
+ * than they are drawn. `isVisible` decides, per edge, at render time.
+ */
 export const TORSO_CONNECTIONS: readonly (readonly [number, number])[] = [
   [PosePoint.leftShoulder, PosePoint.rightShoulder],
   [PosePoint.leftShoulder, PosePoint.leftHip],
@@ -34,11 +40,49 @@ export const ARM_CONNECTIONS: readonly (readonly [number, number])[] = [
   [PosePoint.rightElbow, PosePoint.rightWrist],
 ];
 
-/** Neck: the head sitting on the shoulder line, drawn as its own segment. */
-export const NECK_CONNECTIONS: readonly (readonly [number, number])[] = [
-  [PosePoint.nose, PosePoint.leftShoulder],
-  [PosePoint.nose, PosePoint.rightShoulder],
-];
+/**
+ * Below this, a pose landmark is the model's guess rather than something it saw.
+ *
+ * Filming a signer from the chest up leaves the hips invisible, and MediaPipe answers with
+ * extrapolated coordinates instead of nothing. Drawing those produces a torso box running
+ * off the bottom of the picture and arms pointing at the frame edges.
+ */
+export const MIN_POSE_VISIBILITY = 0.6;
+
+export function isVisible(point: Landmark | undefined): boolean {
+  // Absent visibility means the estimator does not report it (hands, face) — trust those.
+  return point !== undefined && (point.visibility ?? 1) >= MIN_POSE_VISIBILITY;
+}
+
+/**
+ * The neck: one segment from the middle of the shoulders up to the head.
+ *
+ * MediaPipe has no neck landmark, so it has to be derived. Drawing nose-to-each-shoulder
+ * instead — the obvious shortcut — paints a wide triangle across the chest that looks
+ * nothing like a neck and hides the signing space behind it.
+ */
+export function neckSegment(pose: readonly Landmark[]): readonly [Landmark, Landmark] | null {
+  const left = pose[PosePoint.leftShoulder];
+  const right = pose[PosePoint.rightShoulder];
+  const nose = pose[PosePoint.nose];
+  if (!isVisible(left) || !isVisible(right) || !isVisible(nose) || !left || !right || !nose) {
+    return null;
+  }
+
+  const centre: Landmark = {
+    x: (left.x + right.x) / 2,
+    y: (left.y + right.y) / 2,
+    z: (left.z + right.z) / 2,
+  };
+  // Stop short of the nose: the neck ends at the chin, and running the line into the face
+  // mesh just clutters it.
+  const chin: Landmark = {
+    x: centre.x + (nose.x - centre.x) * 0.6,
+    y: centre.y + (nose.y - centre.y) * 0.6,
+    z: centre.z + (nose.z - centre.z) * 0.6,
+  };
+  return [centre, chin];
+}
 
 export interface PoseLandmarks {
   readonly points: readonly Landmark[];

@@ -3,6 +3,15 @@ export interface Landmark {
   readonly x: number;
   readonly y: number;
   readonly z: number;
+  /**
+   * How sure the estimator is that this point is actually in frame, 0..1.
+   *
+   * Pose reports it; hands and face do not. It matters because MediaPipe's pose model
+   * *extrapolates* landmarks it cannot see rather than omitting them — film someone from
+   * the chest up and it will still hand you hip coordinates, invented, somewhere below the
+   * bottom of the picture.
+   */
+  readonly visibility?: number | undefined;
 }
 
 export type Handedness = 'left' | 'right';
