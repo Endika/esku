@@ -19,7 +19,7 @@ export class Container {
   readonly taught = new PrototypeSignClassifier(this.customSigns);
   readonly teach = new TeachCustomSignUseCase(this.customSigns);
   readonly manageCustomSigns = new ManageCustomSignsUseCase(this.customSigns);
-  readonly engineStorage = new EngineCacheStorage();
+  readonly engineStorage: EngineCacheStorage;
   readonly vocabulary: VocabularySignClassifier;
   readonly classifiers: readonly ISignClassifier[];
   readonly recognize: RecognizeSignsUseCase;
@@ -27,6 +27,7 @@ export class Container {
   constructor(video: HTMLVideoElement) {
     // BASE_URL, not a leading slash: the app is served from /esku/ on Pages and from / in dev.
     const base = import.meta.env.BASE_URL;
+    this.engineStorage = new EngineCacheStorage(base);
 
     this.source = new MediaPipeLandmarkSource(video, {
       wasmPath: `${base}wasm`,

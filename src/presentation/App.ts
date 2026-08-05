@@ -202,9 +202,11 @@ export function renderApp(root: HTMLElement): void {
     clear: () => container.engineStorage.clear(),
     // Loading through the real source downloads exactly the WASM variant this browser will
     // use, rather than guessing and fetching both the SIMD and no-SIMD builds.
-    // Both engines, or "descargar ahora" would leave the vocabulary weights to arrive later
-    // on whatever connection the user happened to be avoiding.
-    preload: async () => {
+    // Store the files ourselves first, then initialise. Letting MediaPipe fetch them and
+    // hoping the service worker caught it left the runtime uncached and the app broken
+    // offline — the models were saved and the WASM was not.
+    preload: async (onProgress) => {
+      await container.engineStorage.warm(onProgress);
       await Promise.all([container.source.load(), container.vocabulary.load()]);
     },
   });
