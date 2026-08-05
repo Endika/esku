@@ -13,9 +13,14 @@ export interface RecognitionUpdate {
   readonly transcript: Transcript;
   /** What the engines are currently seeing, best first. For the live hint, not the text. */
   readonly candidates: readonly SignCandidate[];
+  /** The frame these candidates came from, so the UI can draw what was tracked. */
+  readonly frame: LandmarkFrame;
 }
 
 export type RecognitionListener = (update: RecognitionUpdate) => void;
+
+/** Emitted alongside edits, which change the text without any new camera input. */
+const EMPTY_FRAME: LandmarkFrame = { timestampMs: 0, hands: [] };
 
 /**
  * Drives the whole live pipeline: camera → segmenter → classifiers → stabiliser → transcript.
@@ -55,7 +60,7 @@ export class RecognizeSignsUseCase {
     this.transcript = this.transcript.clear();
     this.frameStabilizer.release();
     this.windowStabilizer.release();
-    this.emit([]);
+    this.emit([], EMPTY_FRAME);
   }
 
   undo(): void {
@@ -63,7 +68,7 @@ export class RecognizeSignsUseCase {
     // Releasing lets the user re-sign what they just deleted, which is usually the point.
     this.frameStabilizer.release();
     this.windowStabilizer.release();
-    this.emit([]);
+    this.emit([], EMPTY_FRAME);
   }
 
   get current(): Transcript {
@@ -92,7 +97,7 @@ export class RecognizeSignsUseCase {
         this.windowStabilizer.release();
       }
 
-      this.emit(live);
+      this.emit(live, frame);
     } finally {
       this.busy = false;
     }
@@ -126,7 +131,7 @@ export class RecognizeSignsUseCase {
     });
   }
 
-  private emit(candidates: readonly SignCandidate[]): void {
-    this.listener?.({ transcript: this.transcript, candidates });
+  private emit(candidates: readonly SignCandidate[], frame: LandmarkFrame): void {
+    this.listener?.({ transcript: this.transcript, candidates, frame });
   }
 }
