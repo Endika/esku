@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Endika/esku/compare/v1.2.0...v1.3.0) (2026-08-05)
+
+
+### Features
+
+* let the user download and free the cached engine ([5f58558](https://github.com/Endika/esku/commit/5f5855894dc25e49b452f652b6856403f5ee9e38))
+
 ## [1.2.0](https://github.com/Endika/esku/compare/v1.1.0...v1.2.0) (2026-08-05)
 
 
