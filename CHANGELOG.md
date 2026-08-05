@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.3](https://github.com/Endika/esku/compare/v1.7.2...v1.7.3) (2026-08-05)
+
+
+### Bug Fixes
+
+* tune segmentation to match training and correct the engine size ([57a0949](https://github.com/Endika/esku/commit/57a09495f3765b53e4f96676d68560615bc074dc))
+
 ## [1.7.2](https://github.com/Endika/esku/compare/v1.7.1...v1.7.2) (2026-08-05)
 
 
