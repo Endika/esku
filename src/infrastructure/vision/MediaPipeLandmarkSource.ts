@@ -10,6 +10,8 @@ import {
 } from '@domain/landmarks/value-objects/Landmark';
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision';
 
+export type CameraFacing = 'user' | 'environment';
+
 export interface MediaPipeOptions {
   /** Where the vendored WASM lives, relative to the deployed base. */
   readonly wasmPath: string;
@@ -31,6 +33,8 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
   private frameHandle: number | null = null;
   private lastVideoTime = -1;
   private running = false;
+  private facing: CameraFacing = 'user';
+  private listener: LandmarkListener | null = null;
 
   constructor(
     private readonly video: HTMLVideoElement,
@@ -39,6 +43,26 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
 
   isRunning(): boolean {
     return this.running;
+  }
+
+  get camera(): CameraFacing {
+    return this.facing;
+  }
+
+  /**
+   * Front camera for signing to yourself, rear for reading someone else.
+   *
+   * Restarts the stream rather than reconfiguring it: `getUserMedia` cannot change
+   * `facingMode` on a live track, and phones expose the two cameras as separate devices.
+   */
+  async useCamera(facing: CameraFacing): Promise<void> {
+    if (facing === this.facing) return;
+    this.facing = facing;
+
+    if (!this.running) return;
+    const listener = this.listener;
+    this.stop();
+    if (listener) await this.start(listener);
   }
 
   /**
@@ -58,10 +82,11 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
 
   async start(listener: LandmarkListener): Promise<void> {
     await this.load();
+    this.listener = listener;
 
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: this.facing, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
     } catch (cause) {
@@ -87,7 +112,7 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
         this.lastVideoTime = this.video.currentTime;
         const timestampMs = performance.now();
         const result = this.landmarker.detectForVideo(this.video, timestampMs);
-        listener({ timestampMs, hands: toHands(result) });
+        listener({ timestampMs, hands: toHands(result, this.facing) });
       }
 
       this.frameHandle = requestAnimationFrame(tick);
@@ -116,13 +141,28 @@ interface MediaPipeResult {
   readonly handedness?: { categoryName?: string }[][];
 }
 
-function toHands(result: MediaPipeResult): HandLandmarks[] {
+/**
+ * Which of the signer's hands MediaPipe just labelled.
+ *
+ * MediaPipe reports handedness for a *mirrored* view, which is what a selfie camera gives:
+ * its "Left" is the user's right hand. The rear camera is not mirrored, so the mapping
+ * inverts. Getting this wrong swaps every hand silently — and because `normalizeHand`
+ * mirrors left hands into the right hand's space, two-handed signs come out reflected and
+ * the model quietly sees the wrong thing.
+ *
+ * Exported so that reasoning can be tested without a camera.
+ */
+export function handednessFor(label: string | undefined, facing: CameraFacing): Handedness {
+  const mirrored = facing === 'user';
+  const isRight = mirrored ? label === 'Left' : label === 'Right';
+  return isRight ? 'right' : 'left';
+}
+
+function toHands(result: MediaPipeResult, facing: CameraFacing): HandLandmarks[] {
   const hands: HandLandmarks[] = [];
   result.landmarks?.forEach((points, i) => {
     const label = result.handedness?.[i]?.[0]?.categoryName;
-    // MediaPipe labels the *mirrored* selfie view, so its "Left" is the user's right hand.
-    const handedness: Handedness = label === 'Left' ? 'right' : 'left';
-    hands.push(createHandLandmarks(handedness, points));
+    hands.push(createHandLandmarks(handednessFor(label, facing), points));
   });
   return hands;
 }
