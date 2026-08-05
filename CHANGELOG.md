@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/Endika/esku/compare/v1.7.0...v1.7.1) (2026-08-05)
+
+
+### Bug Fixes
+
+* recognise signing that never pauses ([1591ebe](https://github.com/Endika/esku/commit/1591ebe3d1fcb16d05038d0e758e813168ff8408))
+
 ## [1.7.0](https://github.com/Endika/esku/compare/v1.6.0...v1.7.0) (2026-08-05)
 
 
