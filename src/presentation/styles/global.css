@@ -143,7 +143,7 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   /* Mirrored so the user sees themselves as in a mirror; raising the right hand must look
      like raising the right hand, or aiming a handshape becomes guesswork. */
   transform: scaleX(-1);
@@ -152,6 +152,23 @@ body {
 }
 
 .stage__video.is-live {
+  opacity: 1;
+}
+
+/* Skeleton layer. Mirrored exactly like the video beneath it, or the hand and its skeleton
+   drift apart the moment either moves. */
+.stage__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(-1);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.stage__overlay.is-live {
   opacity: 1;
 }
 
