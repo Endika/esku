@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Endika/esku/compare/v1.4.0...v1.5.0) (2026-08-05)
+
+
+### Features
+
+* read signs from the rear camera too ([3e974f4](https://github.com/Endika/esku/commit/3e974f447ee50541f243eac515f407c92d696149))
+
 ## [1.4.0](https://github.com/Endika/esku/compare/v1.3.0...v1.4.0) (2026-08-05)
 
 
