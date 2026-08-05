@@ -1,9 +1,9 @@
 # Offline training pipeline for the LSE vocabulary head.
 # Never installed by the app or by CI — the browser only ever loads the exported ONNX.
-torch==2.9.1
-numpy==2.3.4
-onnx==1.19.1
-onnxruntime==1.23.2
+torch==2.13.0
+numpy==2.5.1
+onnx==1.22.0
+onnxruntime==1.28.0
 pandas==2.3.4
-scikit-learn==1.7.2
-tqdm==4.67.1
+scikit-learn==1.9.0
+tqdm==4.70.0
