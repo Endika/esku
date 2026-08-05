@@ -1,6 +1,9 @@
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import type { ISignClassifier } from '@domain/recognition/services/ISignClassifier';
-import { SIGNATURE_LENGTH, windowSignature } from '@domain/recognition/services/windowSignature';
+import {
+  VOCABULARY_SIGNATURE_LENGTH,
+  vocabularySignature,
+} from '@domain/recognition/services/vocabularySignature';
 import {
   byConfidenceDescending,
   createGloss,
@@ -43,8 +46,8 @@ export class SignatureLayoutMismatchError extends Error {
   constructor(expected: number, actual: number) {
     super(
       `Model expects a ${expected}-float signature but this build produces ${actual}. ` +
-        'src/domain/recognition/services/windowSignature.ts and tools/train/features.py ' +
-        'have drifted apart.',
+        'src/domain/recognition/services/vocabularySignature.ts and ' +
+        'tools/train/vocabulary_features.py have drifted apart.',
     );
     this.name = 'SignatureLayoutMismatchError';
   }
@@ -87,8 +90,8 @@ export class VocabularySignClassifier implements ISignClassifier {
 
     // Fail loudly here rather than predicting noise later. A signature-layout drift between
     // the app and the trainer produces confident nonsense, which is far harder to notice.
-    if (manifest.signatureLength !== SIGNATURE_LENGTH) {
-      throw new SignatureLayoutMismatchError(manifest.signatureLength, SIGNATURE_LENGTH);
+    if (manifest.signatureLength !== VOCABULARY_SIGNATURE_LENGTH) {
+      throw new SignatureLayoutMismatchError(manifest.signatureLength, VOCABULARY_SIGNATURE_LENGTH);
     }
 
     const floats = new Float32Array(blob);
@@ -109,7 +112,7 @@ export class VocabularySignClassifier implements ISignClassifier {
     const tensors = this.tensors;
     if (!manifest || !tensors || window.length === 0) return [];
 
-    const probabilities = softmax(this.forward(windowSignature(window), manifest, tensors));
+    const probabilities = softmax(this.forward(vocabularySignature(window), manifest, tensors));
 
     return manifest.concepts
       .map((concept, i) => ({ concept, probability: probabilities[i] ?? 0 }))

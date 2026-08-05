@@ -239,8 +239,8 @@
     "VIRUS^EVITAR",
     "VOMITAR"
   ],
-  "signatureLength": 1056,
-  "frames": 8,
+  "signatureLength": 2384,
+  "frames": 16,
   "hidden": 128,
   "layers": 2,
   "order": [
@@ -269,14 +269,14 @@
   ],
   "shapes": {
     "norm.weight": [
-      132
+      149
     ],
     "norm.bias": [
-      132
+      149
     ],
     "gru.weight_ih_l0": [
       384,
-      132
+      149
     ],
     "gru.weight_hh_l0": [
       384,
@@ -290,7 +290,7 @@
     ],
     "gru.weight_ih_l0_reverse": [
       384,
-      132
+      149
     ],
     "gru.weight_hh_l0_reverse": [
       384,
@@ -345,7 +345,7 @@
       238
     ]
   },
-  "testTop1": 0.6321,
-  "testTop3": 0.8261,
+  "testTop1": 0.7408,
+  "testTop3": 0.8696,
   "source": "SWL-LSE (CC-BY-4.0), doi:10.5281/zenodo.13691887"
 }
