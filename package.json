@@ -14,7 +14,9 @@
   "bugs": "https://github.com/Endika/esku/issues",
   "scripts": {
     "dev": "vite",
+    "predev": "node scripts/copy-wasm.mjs",
     "build": "tsc && vite build",
+    "prebuild": "node scripts/copy-wasm.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

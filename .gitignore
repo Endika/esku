@@ -19,3 +19,6 @@ tools/train/data
 tools/train/runs
 __pycache__
 *.pyc
+
+# Staged from node_modules by scripts/copy-wasm.mjs, never committed.
+public/wasm

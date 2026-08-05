@@ -69,6 +69,20 @@ npm run icons      # regenerate PWA icons from public/favicon.svg
 **The camera cannot be tested under WSL2** — no device access. Use a browser on the host OS
 or a real phone against the dev server over the network.
 
+### Engine assets
+
+The recognition engine is served same-origin from `public/`, never a CDN — the page holds
+camera permission, so a third party must not be able to serve executable code into it.
+
+- **WASM** is staged from `node_modules` by `scripts/copy-wasm.mjs`, run automatically before
+  `dev` and `build`. Not committed: 22 MB in every clone, and a committed copy can drift from
+  the `@mediapipe/tasks-vision` version that loads it. `public/wasm/` is gitignored.
+- **`hand_landmarker.task`** (7.5 MB) is committed, since it is not published on npm.
+
+Neither is precached by the service worker. Together they are ~29 MB, and precaching would
+put that download in front of the first paint; they are cached on first use instead, after
+which the app is fully offline.
+
 ## Licence
 
 MIT for the code. The trained weights derive from a CC-BY-4.0 dataset — see
