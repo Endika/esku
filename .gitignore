@@ -23,3 +23,6 @@ __pycache__
 # Staged from node_modules by scripts/copy-wasm.mjs, never committed.
 public/wasm
 tools/train/artifacts
+
+# Landmarks derived from corpora with no established licence. Never commit these.
+tools/train/.cache_*.npz

@@ -66,3 +66,19 @@ boundary, which means the tuning above is fitted to SWL-LSE rather than to signi
 
 That corpus is not in this repository and its terms of use are unknown, hence the path
 argument. Do not train on it or redistribute any part of it without establishing a licence.
+
+### Shipping a corpus as a taught-sign pack — measured, and it does not work
+
+`prototype_pack.py <videos> [--limit N]` asks whether a small corpus can ship as a
+nearest-prototype pack, the way user-taught signs already do. Six examples per sign is far
+too few to train on and, in principle, plenty to match against.
+
+Against CALSE100 it scores 43.3% top-1 on a held-out signer over twenty words — well above
+the 5% chance baseline, so the signs are separable. But the confidence is unusable: the
+median distance to the correct sign is 0.837 and to the best *wrong* sign 0.775. Lowering
+the threshold, recalibrating `DISTANCE_SCALE` and dropping the raw wrist position all left
+top-1 untouched.
+
+`windowSignature` is built for one person repeating their own sign and carries no invariance
+across bodies, cameras and styles. The negative result is recorded here so nobody spends
+another afternoon on it; revisit only with a corpus that has many more signers per sign.
