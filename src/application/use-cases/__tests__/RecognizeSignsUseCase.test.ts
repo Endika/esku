@@ -84,14 +84,30 @@ class CountingWindowClassifier implements ISignClassifier {
   }
 }
 
+const FRAME_MS = 33;
+
 function movingFrames(count: number, from = 0) {
   return Array.from({ length: count }, (_, i) =>
-    buildFrame((from + i) * 33, buildHand({ offset: { x: (from + i) * 0.06, y: 0 } })),
+    buildFrame((from + i) * FRAME_MS, buildHand({ offset: { x: (from + i) * 0.06, y: 0 } })),
   );
 }
 
-function stillFrames(count: number, at: number) {
-  return Array.from({ length: count }, () => buildFrame(0, buildHand({ offset: { x: at, y: 0 } })));
+/**
+ * One complete sign: moving, then held still long enough to read as a boundary.
+ *
+ * The frame count is chosen for *duration* — 40 frames at 33 ms is 1.3 s, past the
+ * segmenter's `minSignMs`. Timestamps have to be real and continuous: these frames used to
+ * be stamped 0 and the segmenter counted frames, so the lie was invisible. It is not any
+ * more, and a collapsed timestamp span now silently means "no sign happened".
+ */
+function scriptedSign(moving = 40, still = 6) {
+  const heldAt = (moving - 1) * 0.06;
+  return [
+    ...movingFrames(moving),
+    ...Array.from({ length: still }, (_, i) =>
+      buildFrame((moving + i) * FRAME_MS, buildHand({ offset: { x: heldAt, y: 0 } })),
+    ),
+  ];
 }
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -121,7 +137,7 @@ describe('RecognizeSignsUseCase', () => {
     await tick();
 
     // The sign now completes entirely while that first call is still in flight.
-    for (const frame of [...movingFrames(20), ...stillFrames(14, 1.2)]) source.push(frame);
+    for (const frame of scriptedSign()) source.push(frame);
     expect(vocabulary.calls).toBe(0);
 
     slow.blocking = false;
@@ -133,7 +149,7 @@ describe('RecognizeSignsUseCase', () => {
 
   it('transcribes a recognised sign as a word', async () => {
     await recognize.start(() => {});
-    for (const frame of [...movingFrames(20), ...stillFrames(14, 1.2)]) source.push(frame);
+    for (const frame of scriptedSign()) source.push(frame);
     await tick();
 
     expect(recognize.current.toText().toLowerCase()).toContain('dolor');
@@ -146,7 +162,7 @@ describe('RecognizeSignsUseCase', () => {
       await recognize.start((update) => {
         last = update;
       });
-      for (const frame of [...movingFrames(20), ...stillFrames(14, 1.2)]) source.push(frame);
+      for (const frame of scriptedSign()) source.push(frame);
       await tick();
       return last!.diagnostics;
     }
@@ -213,7 +229,7 @@ describe('RecognizeSignsUseCase', () => {
     slow.blocking = true;
     source.push(buildFrame(0, buildHand()));
     await tick();
-    for (const frame of [...movingFrames(20), ...stillFrames(14, 1.2)]) source.push(frame);
+    for (const frame of scriptedSign()) source.push(frame);
 
     recognize.stop();
     slow.blocking = false;

@@ -18,12 +18,24 @@ import torch
 from train import SignHead, load
 from vocabulary_features import SIGNATURE_LENGTH, vocabulary_signature
 
-MOTION_THRESHOLD = 0.03
+#: SWL-LSE is 20.00 fps in all 300 of its reference videos, measured, not assumed. Every
+#: threshold below used to be a frame count, which silently meant "at 20 fps" — and the
+#: browser runs at whatever three MediaPipe models allow. This constant is what converts
+#: frame indices to the wall-clock the segmenter now reasons in; it belongs to the *dataset*,
+#: never to the app.
+DATASET_FPS = 20.0
+FRAME_MS = 1000.0 / DATASET_FPS
+
+MOTION_RATE = 0.6  # palm widths per second
 DECELERATION_DROP = 0.45
-DECELERATION_HOLD = 1
-MIN_SIGN_FRAMES = 24
+DECELERATION_HOLD_MS = 50
+#: N frames span N-1 intervals, so the swept counts convert as (n-1)/DATASET_FPS: the 24-frame
+#: floor is 1150 ms, not 1200. Kept exact so this reproduces the pre-conversion numbers and any
+#: drift is a porting mistake rather than a retune.
+MIN_SIGN_MS = 1150
+MIN_MS = 150
 MIN_FRAMES = 4
-MAX_FRAMES = 48
+MAX_MS = 2350
 
 WRIST, INDEX_MCP, PINKY_MCP = 0, 5, 17
 TIPS = [4, 8, 12, 16, 20]
@@ -57,56 +69,66 @@ def dominant(right: np.ndarray, left: np.ndarray, index: int) -> np.ndarray:
     return r if np.ptp(r[:, 0]) * np.ptp(r[:, 1]) >= np.ptp(l[:, 0]) * np.ptp(l[:, 1]) else l
 
 
+def span_ms(window: list[int]) -> float:
+    """Wall-clock span of a window, from frame indices at the dataset's rate."""
+    return (window[-1] - window[0]) * FRAME_MS if len(window) > 1 else 0.0
+
+
 def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]]:
     """Every window the app would emit over a stream. Port of `SignSegmenter.push`.
 
     Closes where the signer decelerates off this window's peak speed, not where they hold
     still: stillness is a property of dictionary recordings, not of signing.
+
+    Reasons in milliseconds, like the TypeScript it ports. The frame-counting version agreed
+    with the app only at the dataset's own 20 fps, which is why every offline number looked
+    healthy while the browser wrote nothing.
     """
     if left is None:
         left = np.zeros_like(right)
     out: list[list[int]] = []
     window: list[int] = []
     peak = 0.0
-    slow = 0
+    slow_ms = 0.0
     active = False
 
     def close() -> None:
-        nonlocal window, peak, slow, active
-        if len(window) >= MIN_FRAMES:
+        nonlocal window, peak, slow_ms, active
+        if span_ms(window) >= MIN_MS and len(window) >= MIN_FRAMES:
             out.append(window)
-        window, peak, slow, active = [], 0.0, 0, False
+        window, peak, slow_ms, active = [], 0.0, 0.0, False
 
     for index in range(len(right)):
-        motion = (
+        rate = (
             motion_between(dominant(right, left, index), dominant(right, left, window[-1]))
+            / (FRAME_MS / 1000.0)
             if window
             else 0.0
         )
         window.append(index)
 
-        if motion > MOTION_THRESHOLD:
+        if rate > MOTION_RATE:
             active = True
-            peak = max(peak, motion)
+            peak = max(peak, rate)
 
         if not active:
-            if len(window) > MIN_FRAMES:
+            while len(window) > 1 and span_ms(window) > MIN_MS:
                 window.pop(0)
             continue
 
-        if len(window) >= MAX_FRAMES:
+        if span_ms(window) >= MAX_MS:
             close()
             continue
 
         decelerating = (
-            len(window) >= MIN_SIGN_FRAMES and peak > 0 and motion < peak * DECELERATION_DROP
+            span_ms(window) >= MIN_SIGN_MS and peak > 0 and rate < peak * DECELERATION_DROP
         )
         if not decelerating:
-            slow = 0
+            slow_ms = 0.0
             continue
 
-        slow += 1
-        if slow >= DECELERATION_HOLD:
+        slow_ms += FRAME_MS
+        if slow_ms >= DECELERATION_HOLD_MS:
             close()
 
     # The recording ended mid-sign; the app would emit on the hand leaving frame.

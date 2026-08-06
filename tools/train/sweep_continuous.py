@@ -94,24 +94,24 @@ def main() -> None:
     model = load_model(concepts)
     truth = torch.tensor([index[str(bundle["y"][i])] for i in range(count)])
 
-    shipped = (sim.DECELERATION_DROP, sim.DECELERATION_HOLD, sim.MIN_SIGN_FRAMES)
-    print(f"{'caida':>7} {'hold':>5} {'min':>5} {'aislado':>9} {'continuo':>10} {'precision':>11}")
+    shipped = (sim.DECELERATION_DROP, sim.DECELERATION_HOLD_MS, sim.MIN_SIGN_MS)
+    print(f"{'caida':>7} {'holdms':>7} {'minms':>6} {'aislado':>9} {'continuo':>10} {'precision':>11}")
 
     for drop in (0.45, 0.35):
-        for hold in (1, 3):
-            for min_sign in (18, 24, 28):
+        for hold in (50, 150):
+            for min_sign in (850, 1150, 1350):
                 sim.DECELERATION_DROP = drop
-                sim.DECELERATION_HOLD = hold
-                sim.MIN_SIGN_FRAMES = min_sign
+                sim.DECELERATION_HOLD_MS = hold
+                sim.MIN_SIGN_MS = min_sign
                 iso = isolated(bundle, count, concepts, model, truth)
                 rec, precision = continuous(bundle, count, concepts, model)
                 mark = "  <-- actual" if (drop, hold, min_sign) == shipped else ""
                 print(
-                    f"{drop:>7} {hold:>5} {min_sign:>5} "
+                    f"{drop:>7} {hold:>7} {min_sign:>6} "
                     f"{iso:9.3f} {rec * 100:9.1f}% {precision * 100:10.1f}%{mark}"
                 )
 
-    sim.DECELERATION_DROP, sim.DECELERATION_HOLD, sim.MIN_SIGN_FRAMES = shipped
+    sim.DECELERATION_DROP, sim.DECELERATION_HOLD_MS, sim.MIN_SIGN_MS = shipped
 
 
 if __name__ == "__main__":
