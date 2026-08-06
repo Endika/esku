@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.1](https://github.com/Endika/esku/compare/v1.9.0...v1.9.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* compare the feature vector against medians, not poisoned means ([#41](https://github.com/Endika/esku/issues/41)) ([8b66f6d](https://github.com/Endika/esku/commit/8b66f6dade286ccb1bced3e5170a71f6f6d03568))
+
 ## [1.9.0](https://github.com/Endika/esku/compare/v1.8.0...v1.9.0) (2026-08-06)
 
 
