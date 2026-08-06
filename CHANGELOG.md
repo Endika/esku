@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/Endika/esku/compare/v1.10.0...v1.10.1) (2026-08-06)
+
+
+### Bug Fixes
+
+* stop cancelling Pages deploys, which blocks the deployment queue ([#51](https://github.com/Endika/esku/issues/51)) ([917438a](https://github.com/Endika/esku/commit/917438add3a7ba82fc20f7782c26c881ecfa35ff))
+
 ## [1.10.0](https://github.com/Endika/esku/compare/v1.9.3...v1.10.0) (2026-08-06)
 
 
