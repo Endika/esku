@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0](https://github.com/Endika/esku/compare/v1.7.6...v1.8.0) (2026-08-06)
+
+
+### Features
+
+* show what the pipeline did when no word appears ([#37](https://github.com/Endika/esku/issues/37)) ([44a55fc](https://github.com/Endika/esku/commit/44a55fcd2b024ba38ac36dc61b09cc6ea4445905))
+
 ## [1.7.6](https://github.com/Endika/esku/compare/v1.7.5...v1.7.6) (2026-08-05)
 
 
