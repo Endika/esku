@@ -22,6 +22,27 @@ export interface RawScore {
  */
 export type WindowVeto = 'classifier' | 'stabilizer' | 'duplicate';
 
+export interface SignatureBlock {
+  /** 0..1 of the 16 sampled frames where this part contributed nothing at all. */
+  readonly emptyFrames: number;
+  /** Mean absolute value across the part's floats, over the frames that had it. */
+  readonly meanMagnitude: number;
+}
+
+/**
+ * The feature vector the browser actually built, summarised per body part.
+ *
+ * Measured over SWL-LSE's test split for comparison — right hand 3.37, left 3.61, torso
+ * 0.515, face 0.157, and torso empty on 0.0% of frames. A part that reads far from its
+ * number here is receiving something training never saw.
+ */
+export interface SignatureProfile {
+  readonly rightHand: SignatureBlock;
+  readonly leftHand: SignatureBlock;
+  readonly torso: SignatureBlock;
+  readonly face: SignatureBlock;
+}
+
 export interface RecognitionDiagnostics {
   readonly framesSeen: number;
   readonly framesWithHands: number;
@@ -39,6 +60,8 @@ export interface RecognitionDiagnostics {
   readonly lastRawTop: readonly RawScore[];
   readonly lastVeto: WindowVeto | null;
   readonly wordsEmitted: number;
+  /** What the model was actually fed for the last window. Null until one is classified. */
+  readonly lastSignature: SignatureProfile | null;
 }
 
 export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
@@ -54,4 +77,5 @@ export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
   lastRawTop: [],
   lastVeto: null,
   wordsEmitted: 0,
+  lastSignature: null,
 };

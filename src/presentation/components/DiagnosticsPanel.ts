@@ -1,8 +1,23 @@
 import {
   EMPTY_DIAGNOSTICS,
   type RecognitionDiagnostics,
+  type SignatureBlock,
   type WindowVeto,
 } from '@domain/recognition/value-objects/RecognitionDiagnostics';
+
+/**
+ * The same statistics measured over SWL-LSE's test split — `tools/train`, 598 recordings.
+ *
+ * Shown beside the live numbers because the model scores near-noise in the browser while
+ * measuring 0.741 offline, and feature parity with the trainer is already verified. So the
+ * input differs, and the part whose numbers do not match is where.
+ */
+const EXPECTED: Record<string, { empty: number; magnitude: number }> = {
+  'Mano derecha': { empty: 0.238, magnitude: 3.37 },
+  'Mano izquierda': { empty: 0.377, magnitude: 3.61 },
+  Torso: { empty: 0.0, magnitude: 0.515 },
+  Cara: { empty: 0.002, magnitude: 0.157 },
+};
 
 /**
  * Shows what the pipeline did, so "it writes nothing" becomes a specific failure.
@@ -90,6 +105,37 @@ export class DiagnosticsPanel {
         <dt>Mejores opciones, sin filtrar</dt>
         <dd>${scores}</dd>
       </div>
+      <div class="diagnostics__row diagnostics__row--wide">
+        <dt>Lo que recibió el modelo (esperado entre paréntesis)</dt>
+        <dd>${this.describeSignature()}</dd>
+      </div>
     `;
+  }
+
+  /** Live feature magnitudes next to the training reference, one line per body part. */
+  private describeSignature(): string {
+    const profile = this.latest.lastSignature;
+    if (!profile) return 'todavía nada';
+
+    const parts: [string, SignatureBlock][] = [
+      ['Mano derecha', profile.rightHand],
+      ['Mano izquierda', profile.leftHand],
+      ['Torso', profile.torso],
+      ['Cara', profile.face],
+    ];
+
+    return parts
+      .map(([label, block]) => {
+        const reference = EXPECTED[label]!;
+        const empty = `${(block.emptyFrames * 100).toFixed(0)}% vacío (${(reference.empty * 100).toFixed(0)}%)`;
+        const size = `${block.meanMagnitude.toFixed(2)} (${reference.magnitude.toFixed(2)})`;
+        // Flagged rather than left to be eyeballed: an order of magnitude is the signal.
+        const off =
+          block.emptyFrames - reference.empty > 0.3 ||
+          block.meanMagnitude > reference.magnitude * 3 ||
+          block.meanMagnitude < reference.magnitude / 3;
+        return `<div${off ? ' class="diagnostics__off"' : ''}>${label}: ${empty} · ${size}</div>`;
+      })
+      .join('');
   }
 }

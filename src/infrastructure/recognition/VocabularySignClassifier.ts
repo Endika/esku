@@ -1,6 +1,7 @@
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import type { ISignClassifier } from '@domain/recognition/services/ISignClassifier';
 import {
+  profileSignature,
   VOCABULARY_SIGNATURE_LENGTH,
   vocabularySignature,
 } from '@domain/recognition/services/vocabularySignature';
@@ -9,7 +10,10 @@ import {
   createGloss,
   type SignCandidate,
 } from '@domain/recognition/value-objects/Gloss';
-import type { RawScore } from '@domain/recognition/value-objects/RecognitionDiagnostics';
+import type {
+  RawScore,
+  SignatureProfile,
+} from '@domain/recognition/value-objects/RecognitionDiagnostics';
 import {
   affine,
   type GruDirection,
@@ -68,6 +72,7 @@ export class VocabularySignClassifier implements ISignClassifier {
   private manifest: VocabularyManifest | null = null;
   private tensors: Map<string, Float32Array> | null = null;
   private rawTop: readonly RawScore[] = [];
+  private profile: SignatureProfile | null = null;
 
   constructor(
     private readonly manifestUrl: string,
@@ -77,6 +82,11 @@ export class VocabularySignClassifier implements ISignClassifier {
   /** The last window's best concepts with `MIN_CONFIDENCE` not applied. See ISignClassifier. */
   get lastScores(): readonly RawScore[] {
     return this.rawTop;
+  }
+
+  /** What the last window looked like as features, per body part. */
+  get lastSignatureProfile(): SignatureProfile | null {
+    return this.profile;
   }
 
   isReady(): boolean {
@@ -119,7 +129,9 @@ export class VocabularySignClassifier implements ISignClassifier {
     const tensors = this.tensors;
     if (!manifest || !tensors || window.length === 0) return [];
 
-    const probabilities = softmax(this.forward(vocabularySignature(window), manifest, tensors));
+    const signature = vocabularySignature(window);
+    this.profile = profileSignature(signature);
+    const probabilities = softmax(this.forward(signature, manifest, tensors));
 
     const ranked = manifest.concepts
       .map((concept, i) => ({

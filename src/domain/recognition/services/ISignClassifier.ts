@@ -1,6 +1,6 @@
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import type { SignCandidate } from '../value-objects/Gloss';
-import type { RawScore } from '../value-objects/RecognitionDiagnostics';
+import type { RawScore, SignatureProfile } from '../value-objects/RecognitionDiagnostics';
 
 /**
  * The single port every recognition engine implements, so the application layer never
@@ -34,4 +34,6 @@ export interface ISignClassifier {
    * returns an empty array in both cases.
    */
   readonly lastScores?: readonly RawScore[];
+  /** The feature vector the last `classify` was fed, summarised per body part. */
+  readonly lastSignatureProfile?: SignatureProfile | null;
 }
