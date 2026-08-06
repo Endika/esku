@@ -19,7 +19,9 @@ from train import SignHead, load
 from vocabulary_features import SIGNATURE_LENGTH, vocabulary_signature
 
 MOTION_THRESHOLD = 0.03
-SETTLE_FRAMES = 10
+DECELERATION_DROP = 0.45
+DECELERATION_HOLD = 1
+MIN_SIGN_FRAMES = 24
 MIN_FRAMES = 4
 MAX_FRAMES = 48
 
@@ -55,13 +57,25 @@ def dominant(right: np.ndarray, left: np.ndarray, index: int) -> np.ndarray:
     return r if np.ptp(r[:, 0]) * np.ptp(r[:, 1]) >= np.ptp(l[:, 0]) * np.ptp(l[:, 1]) else l
 
 
-def segment(right: np.ndarray, left: np.ndarray | None = None) -> list[int] | None:
-    """Return the frame indices the app's segmenter would hand to the classifier."""
+def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]]:
+    """Every window the app would emit over a stream. Port of `SignSegmenter.push`.
+
+    Closes where the signer decelerates off this window's peak speed, not where they hold
+    still: stillness is a property of dictionary recordings, not of signing.
+    """
     if left is None:
         left = np.zeros_like(right)
+    out: list[list[int]] = []
     window: list[int] = []
-    still = 0
+    peak = 0.0
+    slow = 0
     active = False
+
+    def close() -> None:
+        nonlocal window, peak, slow, active
+        if len(window) >= MIN_FRAMES:
+            out.append(window)
+        window, peak, slow, active = [], 0.0, 0, False
 
     for index in range(len(right)):
         motion = (
@@ -73,10 +87,7 @@ def segment(right: np.ndarray, left: np.ndarray | None = None) -> list[int] | No
 
         if motion > MOTION_THRESHOLD:
             active = True
-            still = 0
-            if len(window) >= MAX_FRAMES:
-                return window if len(window) >= MIN_FRAMES else None
-            continue
+            peak = max(peak, motion)
 
         if not active:
             if len(window) > MIN_FRAMES:
@@ -84,14 +95,30 @@ def segment(right: np.ndarray, left: np.ndarray | None = None) -> list[int] | No
             continue
 
         if len(window) >= MAX_FRAMES:
-            return window if len(window) >= MIN_FRAMES else None
+            close()
+            continue
 
-        still += 1
-        if still >= SETTLE_FRAMES:
-            return window if len(window) >= MIN_FRAMES else None
+        decelerating = (
+            len(window) >= MIN_SIGN_FRAMES and peak > 0 and motion < peak * DECELERATION_DROP
+        )
+        if not decelerating:
+            slow = 0
+            continue
+
+        slow += 1
+        if slow >= DECELERATION_HOLD:
+            close()
 
     # The recording ended mid-sign; the app would emit on the hand leaving frame.
-    return window if active and len(window) >= MIN_FRAMES else None
+    if active:
+        close()
+    return out
+
+
+def segment(right: np.ndarray, left: np.ndarray | None = None) -> list[int] | None:
+    """The first window only — what a one-sign recording yields."""
+    found = windows(right, left)
+    return found[0] if found else None
 
 
 def main() -> None:
