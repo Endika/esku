@@ -12,7 +12,11 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  # Never cancel a deploy in flight. Cancelling the *run* does not cancel the Pages
+  # *deployment* it already queued, and that orphan blocks the queue: every later run then
+  # sits in `deployment_queued` until it times out. Three merges in quick succession did
+  # exactly that on 2026-08-06 and the site stayed on the previous bundle for an hour.
+  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
