@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/Endika/esku/compare/v1.8.0...v1.9.0) (2026-08-06)
+
+
+### Features
+
+* report the feature vector the model was actually fed ([#39](https://github.com/Endika/esku/issues/39)) ([024723d](https://github.com/Endika/esku/commit/024723d0030ee08c2a7c5dcbdb38fb100c55fe0a))
+
 ## [1.8.0](https://github.com/Endika/esku/compare/v1.7.6...v1.8.0) (2026-08-06)
 
 
