@@ -10,6 +10,7 @@ import {
 import type {
   RawScore,
   RecognitionDiagnostics,
+  SignatureProfile,
   WindowVeto,
 } from '@domain/recognition/value-objects/RecognitionDiagnostics';
 import { Transcript } from '@domain/transcript/entities/Transcript';
@@ -64,6 +65,7 @@ export class RecognizeSignsUseCase {
   private lastRawTop: readonly RawScore[] = [];
   private lastVeto: WindowVeto | null = null;
   private wordsEmitted = 0;
+  private lastSignature: SignatureProfile | null = null;
   /** The segmenter outlives a session, so short-window counts are read as a delta. */
   private shortWindowsAtStart = 0;
 
@@ -169,6 +171,7 @@ export class RecognizeSignsUseCase {
         this.vocabularyInvocations += 1;
         const words = await this.classifyWindow(pending);
         this.lastRawTop = this.collectRawScores();
+        this.lastSignature = this.collectSignatureProfile();
         const top = words[0] ?? null;
         const word = this.windowStabilizer.accept(top);
         if (word) this.append(word, frame.timestampMs);
@@ -234,6 +237,15 @@ export class RecognizeSignsUseCase {
     return [];
   }
 
+  private collectSignatureProfile(): SignatureProfile | null {
+    for (const engine of this.classifiers) {
+      if (engine.granularity === 'window' && engine.lastSignatureProfile) {
+        return engine.lastSignatureProfile;
+      }
+    }
+    return null;
+  }
+
   private resetDiagnostics(): void {
     this.framesSeen = 0;
     this.framesWithHands = 0;
@@ -243,6 +255,7 @@ export class RecognizeSignsUseCase {
     this.lastRawTop = [];
     this.lastVeto = null;
     this.wordsEmitted = 0;
+    this.lastSignature = null;
     this.shortWindowsAtStart = this.segmenter.discardedShortWindows;
   }
 
@@ -262,6 +275,7 @@ export class RecognizeSignsUseCase {
       lastRawTop: this.lastRawTop,
       lastVeto: this.lastVeto,
       wordsEmitted: this.wordsEmitted,
+      lastSignature: this.lastSignature,
     };
   }
 

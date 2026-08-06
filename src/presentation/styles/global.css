@@ -470,3 +470,9 @@ body {
 .diagnostics__row--wide dd {
   text-align: left;
 }
+
+/* A block whose numbers are nowhere near training: the one line worth finding fast. */
+.diagnostics__off {
+  color: var(--danger);
+  font-weight: 600;
+}

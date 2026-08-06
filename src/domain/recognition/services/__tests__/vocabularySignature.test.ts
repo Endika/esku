@@ -3,7 +3,11 @@ import { join } from 'node:path';
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import { describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
-import { VOCABULARY_SIGNATURE_LENGTH, vocabularySignature } from '../vocabularySignature';
+import {
+  profileSignature,
+  VOCABULARY_SIGNATURE_LENGTH,
+  vocabularySignature,
+} from '../vocabularySignature';
 
 /** Written by `tools/train/make_parity.py` from the same synthetic input. */
 const parity = JSON.parse(
@@ -78,5 +82,25 @@ describe('vocabularySignature', () => {
     // Not identical — the extra frames change which slots resample where — but close, and
     // certainly not a different sign.
     expect(short).toHaveLength(stretched.length);
+  });
+
+  describe('profileSignature', () => {
+    it('summarises each body part of a well-formed window', () => {
+      const profile = profileSignature(vocabularySignature(parityFrames()));
+
+      expect(profile.torso.emptyFrames).toBe(0);
+      expect(profile.rightHand.meanMagnitude).toBeGreaterThan(0);
+      expect(profile.face.meanMagnitude).toBeGreaterThan(0);
+    });
+
+    it('reports the hands as empty when pose is missing, which is what breaks the model', () => {
+      // Hand coordinates are expressed relative to the torso, so losing pose does not degrade
+      // the hand block — it zeroes it. Invisible on screen, fatal to the prediction.
+      const noPose = parityFrames().map(({ pose: _pose, ...frame }) => frame);
+      const profile = profileSignature(vocabularySignature(noPose));
+
+      expect(profile.torso.emptyFrames).toBe(1);
+      expect(profile.rightHand.emptyFrames).toBe(1);
+    });
   });
 });

@@ -1,6 +1,10 @@
 import { PosePoint } from '@domain/landmarks/value-objects/BodyLandmarks';
 import { HandPoint, type Landmark } from '@domain/landmarks/value-objects/Landmark';
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
+import type {
+  SignatureBlock,
+  SignatureProfile,
+} from '@domain/recognition/value-objects/RecognitionDiagnostics';
 
 /**
  * What the trained LSE vocabulary model reads.
@@ -24,6 +28,14 @@ const TORSO_FLOATS = 5;
 const FACE_FLOATS = 6;
 const FRAME_FLOATS = HAND_FLOATS * 2 + TORSO_FLOATS + FACE_FLOATS;
 export const VOCABULARY_SIGNATURE_LENGTH = VOCABULARY_FRAMES * FRAME_FLOATS;
+
+/** Where each part lives inside one frame's slice, for reading a built signature back. */
+const BLOCKS = {
+  rightHand: [0, HAND_FLOATS],
+  leftHand: [HAND_FLOATS, HAND_FLOATS * 2],
+  torso: [HAND_FLOATS * 2, HAND_FLOATS * 2 + TORSO_FLOATS],
+  face: [HAND_FLOATS * 2 + TORSO_FLOATS, FRAME_FLOATS],
+} as const;
 
 /**
  * Face Mesh indices for the landmarks that carry grammar while signing. MediaPipe's
@@ -68,6 +80,44 @@ export function vocabularySignature(window: readonly LandmarkFrame[]): Float32Ar
   }
 
   return signature;
+}
+
+/**
+ * Reads a built signature back as four per-part summaries.
+ *
+ * The model scores near-noise in the browser while measuring 0.741 offline, and the feature
+ * code has verified parity with the trainer — so what differs is the input, not the maths.
+ * Comparing these four numbers against the same statistics over SWL-LSE's test split says
+ * which part is wrong without guessing: a part that is empty here and never empty in
+ * training, or an order-of-magnitude gap, is the answer.
+ */
+export function profileSignature(signature: Float32Array): SignatureProfile {
+  const read = (from: number, to: number): SignatureBlock => {
+    let empty = 0;
+    let total = 0;
+    let count = 0;
+    for (let slot = 0; slot < VOCABULARY_FRAMES; slot += 1) {
+      const base = slot * FRAME_FLOATS;
+      let magnitude = 0;
+      for (let i = from; i < to; i += 1) magnitude += Math.abs(signature[base + i] ?? 0);
+      if (magnitude === 0) empty += 1;
+      else {
+        total += magnitude / (to - from);
+        count += 1;
+      }
+    }
+    return {
+      emptyFrames: empty / VOCABULARY_FRAMES,
+      meanMagnitude: count ? total / count : 0,
+    };
+  };
+
+  return {
+    rightHand: read(...BLOCKS.rightHand),
+    leftHand: read(...BLOCKS.leftHand),
+    torso: read(...BLOCKS.torso),
+    face: read(...BLOCKS.face),
+  };
 }
 
 function sampleIndex(slot: number, length: number): number {
