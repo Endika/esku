@@ -6,17 +6,24 @@ import {
 } from '@domain/recognition/value-objects/RecognitionDiagnostics';
 
 /**
- * The same statistics measured over SWL-LSE's test split — `tools/train`, 598 recordings.
+ * The same statistics over SWL-LSE's test split — `tools/train`, 598 recordings.
  *
- * Shown beside the live numbers because the model scores near-noise in the browser while
- * measuring 0.741 offline, and feature parity with the trainer is already verified. So the
- * input differs, and the part whose numbers do not match is where.
+ * Medians, not means. The mean of a hand block is 3.37 and its median 0.73: three of the
+ * sixty-nine floats are the wrist relative to the torso, and on the 0.01% of frames where
+ * MediaPipe collapses shoulder width to nearly zero that division reaches six figures. A
+ * mean reference flagged a perfectly healthy vector as broken by a factor of three.
  */
 const EXPECTED: Record<string, { empty: number; magnitude: number }> = {
-  'Mano derecha': { empty: 0.238, magnitude: 3.37 },
-  'Mano izquierda': { empty: 0.377, magnitude: 3.61 },
-  Torso: { empty: 0.0, magnitude: 0.515 },
-  Cara: { empty: 0.002, magnitude: 0.157 },
+  'Mano derecha': { empty: 0.238, magnitude: 0.73 },
+  'Mano izquierda': { empty: 0.377, magnitude: 0.73 },
+  Torso: { empty: 0.0, magnitude: 0.51 },
+  Cara: { empty: 0.002, magnitude: 0.15 },
+};
+
+const VETO_LABELS: Record<WindowVeto, string> = {
+  classifier: 'el modelo: ninguna opción llegó a su mínimo',
+  stabilizer: 'el estabilizador: el modelo respondió pero se quedó corto',
+  duplicate: 'repetido: mismo signo que el anterior',
 };
 
 /**
@@ -26,12 +33,6 @@ const EXPECTED: Record<string, { empty: number; magnitude: number }> = {
  * deployed page, so a dev-only panel would never once be looked at while the bug is
  * reproducing.
  */
-const VETO_LABELS: Record<WindowVeto, string> = {
-  classifier: 'el modelo: ninguna opción llegó a su mínimo',
-  stabilizer: 'el estabilizador: el modelo respondió pero se quedó corto',
-  duplicate: 'repetido: mismo signo que el anterior',
-};
-
 export class DiagnosticsPanel {
   private open = false;
   private latest: RecognitionDiagnostics = EMPTY_DIAGNOSTICS;
@@ -84,7 +85,8 @@ export class DiagnosticsPanel {
       ['Última ventana', d.lastWindowFrames ? `${d.lastWindowFrames} fotogramas` : '—'],
       ['Motor cargado', d.vocabularyReady ? 'sí' : 'no'],
       ['Veces consultado', `${d.vocabularyInvocations}`],
-      ['Palabras escritas', `${d.wordsEmitted}`],
+      ['Palabras del vocabulario', `${d.wordsEmitted}`],
+      ['Letras deletreadas', `${d.lettersEmitted}`],
       ['Bloqueado por', d.lastVeto ? VETO_LABELS[d.lastVeto] : '—'],
     ];
 

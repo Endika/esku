@@ -59,7 +59,10 @@ export interface RecognitionDiagnostics {
   /** Unfiltered best guesses for the last window, below the thresholds included. */
   readonly lastRawTop: readonly RawScore[];
   readonly lastVeto: WindowVeto | null;
+  /** Vocabulary words only. Fingerspelled letters are counted separately below. */
   readonly wordsEmitted: number;
+  /** Letters from the alphabet engine, which speaks even while the vocabulary is silent. */
+  readonly lettersEmitted: number;
   /** What the model was actually fed for the last window. Null until one is classified. */
   readonly lastSignature: SignatureProfile | null;
 }
@@ -77,5 +80,6 @@ export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
   lastRawTop: [],
   lastVeto: null,
   wordsEmitted: 0,
+  lettersEmitted: 0,
   lastSignature: null,
 };

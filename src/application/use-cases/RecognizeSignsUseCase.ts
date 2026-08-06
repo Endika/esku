@@ -65,6 +65,7 @@ export class RecognizeSignsUseCase {
   private lastRawTop: readonly RawScore[] = [];
   private lastVeto: WindowVeto | null = null;
   private wordsEmitted = 0;
+  private lettersEmitted = 0;
   private lastSignature: SignatureProfile | null = null;
   /** The segmenter outlives a session, so short-window counts are read as a delta. */
   private shortWindowsAtStart = 0;
@@ -205,7 +206,10 @@ export class RecognizeSignsUseCase {
   }
 
   private append(candidate: SignCandidate, atMs: number): void {
-    this.wordsEmitted += 1;
+    // Counted apart: a panel reading "2 words" while the vocabulary was vetoed every time
+    // says the alphabet spoke, and conflating them hid exactly that.
+    if (candidate.source === 'alphabet') this.lettersEmitted += 1;
+    else this.wordsEmitted += 1;
     this.transcript = this.transcript.append({
       text: candidate.gloss.text,
       source: candidate.source,
@@ -255,6 +259,7 @@ export class RecognizeSignsUseCase {
     this.lastRawTop = [];
     this.lastVeto = null;
     this.wordsEmitted = 0;
+    this.lettersEmitted = 0;
     this.lastSignature = null;
     this.shortWindowsAtStart = this.segmenter.discardedShortWindows;
   }
@@ -275,6 +280,7 @@ export class RecognizeSignsUseCase {
       lastRawTop: this.lastRawTop,
       lastVeto: this.lastVeto,
       wordsEmitted: this.wordsEmitted,
+      lettersEmitted: this.lettersEmitted,
       lastSignature: this.lastSignature,
     };
   }
