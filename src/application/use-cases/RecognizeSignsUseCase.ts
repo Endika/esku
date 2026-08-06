@@ -7,6 +7,11 @@ import {
   byConfidenceDescending,
   type SignCandidate,
 } from '@domain/recognition/value-objects/Gloss';
+import type {
+  RawScore,
+  RecognitionDiagnostics,
+  WindowVeto,
+} from '@domain/recognition/value-objects/RecognitionDiagnostics';
 import { Transcript } from '@domain/transcript/entities/Transcript';
 
 export interface RecognitionUpdate {
@@ -15,6 +20,8 @@ export interface RecognitionUpdate {
   readonly candidates: readonly SignCandidate[];
   /** The frame these candidates came from, so the UI can draw what was tracked. */
   readonly frame: LandmarkFrame;
+  /** Counters behind the pipeline, for the diagnostics panel. Never shown by default. */
+  readonly diagnostics: RecognitionDiagnostics;
 }
 
 export type RecognitionListener = (update: RecognitionUpdate) => void;
@@ -49,6 +56,17 @@ export class RecognizeSignsUseCase {
    */
   private pendingWindow: readonly LandmarkFrame[] | null = null;
 
+  private framesSeen = 0;
+  private framesWithHands = 0;
+  private windowsClosed = 0;
+  private lastWindowFrames = 0;
+  private vocabularyInvocations = 0;
+  private lastRawTop: readonly RawScore[] = [];
+  private lastVeto: WindowVeto | null = null;
+  private wordsEmitted = 0;
+  /** The segmenter outlives a session, so short-window counts are read as a delta. */
+  private shortWindowsAtStart = 0;
+
   constructor(
     private readonly source: ILandmarkSource,
     private readonly classifiers: readonly ISignClassifier[],
@@ -56,6 +74,7 @@ export class RecognizeSignsUseCase {
 
   async start(listener: RecognitionListener): Promise<void> {
     this.listener = listener;
+    this.resetDiagnostics();
     await this.source.start((frame) => void this.onFrame(frame));
   }
 
@@ -109,13 +128,20 @@ export class RecognizeSignsUseCase {
   }
 
   private async onFrame(frame: LandmarkFrame): Promise<void> {
+    this.framesSeen += 1;
     if (frame.hands.length === 0) {
       // A hand leaving frame is a deliberate boundary: it lets the same letter repeat.
       this.frameStabilizer.release();
+    } else {
+      this.framesWithHands += 1;
     }
 
     const closedWindow = this.segmenter.push(frame);
-    if (closedWindow) this.pendingWindow = closedWindow;
+    if (closedWindow) {
+      this.windowsClosed += 1;
+      this.lastWindowFrames = closedWindow.length;
+      this.pendingWindow = closedWindow;
+    }
 
     if (this.capture) {
       // Teaching: hand the finished sign over, and transcribe nothing meanwhile — the user
@@ -140,9 +166,13 @@ export class RecognizeSignsUseCase {
       const pending = this.pendingWindow;
       this.pendingWindow = null;
       if (pending) {
+        this.vocabularyInvocations += 1;
         const words = await this.classifyWindow(pending);
-        const word = this.windowStabilizer.accept(words[0] ?? null);
+        this.lastRawTop = this.collectRawScores();
+        const top = words[0] ?? null;
+        const word = this.windowStabilizer.accept(top);
         if (word) this.append(word, frame.timestampMs);
+        this.lastVeto = this.attributeVeto(top, word);
         this.windowStabilizer.release();
       }
 
@@ -172,6 +202,7 @@ export class RecognizeSignsUseCase {
   }
 
   private append(candidate: SignCandidate, atMs: number): void {
+    this.wordsEmitted += 1;
     this.transcript = this.transcript.append({
       text: candidate.gloss.text,
       source: candidate.source,
@@ -180,7 +211,66 @@ export class RecognizeSignsUseCase {
     });
   }
 
+  /**
+   * Which floor rejected a completed sign.
+   *
+   * An empty `classify` means the engine's own floor took it; a candidate that survived
+   * that and still produced no word was stopped by the stabiliser's — a different, higher
+   * number. Anything else is the already-emitted latch.
+   */
+  private attributeVeto(
+    top: SignCandidate | null,
+    emitted: SignCandidate | null,
+  ): WindowVeto | null {
+    if (emitted) return null;
+    if (!top) return 'classifier';
+    return top.confidence < this.windowStabilizer.threshold ? 'stabilizer' : 'duplicate';
+  }
+
+  private collectRawScores(): readonly RawScore[] {
+    for (const engine of this.classifiers) {
+      if (engine.granularity === 'window' && engine.lastScores?.length) return engine.lastScores;
+    }
+    return [];
+  }
+
+  private resetDiagnostics(): void {
+    this.framesSeen = 0;
+    this.framesWithHands = 0;
+    this.windowsClosed = 0;
+    this.lastWindowFrames = 0;
+    this.vocabularyInvocations = 0;
+    this.lastRawTop = [];
+    this.lastVeto = null;
+    this.wordsEmitted = 0;
+    this.shortWindowsAtStart = this.segmenter.discardedShortWindows;
+  }
+
+  private get diagnostics(): RecognitionDiagnostics {
+    return {
+      framesSeen: this.framesSeen,
+      framesWithHands: this.framesWithHands,
+      windowsClosed: this.windowsClosed,
+      windowsTooShort: this.segmenter.discardedShortWindows - this.shortWindowsAtStart,
+      lastWindowFrames: this.lastWindowFrames,
+      segmenterActive: this.segmenter.isActive,
+      pendingFrames: this.segmenter.pendingFrames,
+      vocabularyReady: this.classifiers.some(
+        (engine) => engine.granularity === 'window' && engine.isReady(),
+      ),
+      vocabularyInvocations: this.vocabularyInvocations,
+      lastRawTop: this.lastRawTop,
+      lastVeto: this.lastVeto,
+      wordsEmitted: this.wordsEmitted,
+    };
+  }
+
   private emit(candidates: readonly SignCandidate[], frame: LandmarkFrame): void {
-    this.listener?.({ transcript: this.transcript, candidates, frame });
+    this.listener?.({
+      transcript: this.transcript,
+      candidates,
+      frame,
+      diagnostics: this.diagnostics,
+    });
   }
 }

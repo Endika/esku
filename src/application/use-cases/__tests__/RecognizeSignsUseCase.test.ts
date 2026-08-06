@@ -4,7 +4,7 @@ import type { ISignClassifier } from '@domain/recognition/services/ISignClassifi
 import { createGloss, type SignCandidate } from '@domain/recognition/value-objects/Gloss';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
-import { RecognizeSignsUseCase } from '../RecognizeSignsUseCase';
+import { type RecognitionUpdate, RecognizeSignsUseCase } from '../RecognizeSignsUseCase';
 
 /** Drives frames by hand instead of waiting on a camera. */
 class ScriptedSource implements ILandmarkSource {
@@ -56,11 +56,20 @@ class SlowFrameClassifier implements ISignClassifier {
   }
 }
 
-/** The vocabulary engine, counting how often it is actually consulted. */
+/**
+ * The vocabulary engine, counting how often it is actually consulted.
+ *
+ * `confidence` is what it answers with, and `lastScores` mirrors the real engine: the raw
+ * softmax survives even when the engine's own floor leaves `classify` empty.
+ */
 class CountingWindowClassifier implements ISignClassifier {
   readonly id = 'window';
   readonly granularity = 'window' as const;
   calls = 0;
+  confidence = 0.9;
+  /** Below this the real engine returns nothing at all, keeping only the raw score. */
+  floor = 0.45;
+  lastScores: readonly { text: string; confidence: number }[] = [];
 
   isReady(): boolean {
     return true;
@@ -69,7 +78,9 @@ class CountingWindowClassifier implements ISignClassifier {
 
   async classify(): Promise<readonly SignCandidate[]> {
     this.calls += 1;
-    return [{ gloss: createGloss('DOLOR'), confidence: 0.9, source: 'vocabulary' }];
+    this.lastScores = [{ text: 'dolor', confidence: this.confidence }];
+    if (this.confidence < this.floor) return [];
+    return [{ gloss: createGloss('DOLOR'), confidence: this.confidence, source: 'vocabulary' }];
   }
 }
 
@@ -126,6 +137,75 @@ describe('RecognizeSignsUseCase', () => {
     await tick();
 
     expect(recognize.current.toText().toLowerCase()).toContain('dolor');
+  });
+
+  describe('diagnostics', () => {
+    /** Runs one complete sign and returns what the panel would be showing afterwards. */
+    async function signOnce() {
+      let last: RecognitionUpdate | null = null;
+      await recognize.start((update) => {
+        last = update;
+      });
+      for (const frame of [...movingFrames(20), ...stillFrames(14, 1.2)]) source.push(frame);
+      await tick();
+      return last!.diagnostics;
+    }
+
+    it('separates a window never closing from an engine never asked', async () => {
+      // The app draws a correct skeleton and writes nothing in both cases. Offline metrics
+      // cannot tell them apart, which is how three previous diagnoses went wrong.
+      let last: RecognitionUpdate | null = null;
+      await recognize.start((update) => {
+        last = update;
+      });
+      for (const frame of movingFrames(3)) source.push(frame);
+      await tick();
+
+      expect(last!.diagnostics.windowsClosed).toBe(0);
+      expect(last!.diagnostics.vocabularyInvocations).toBe(0);
+      expect(last!.diagnostics.segmenterActive).toBe(true);
+    });
+
+    it('reports the engine being asked, and what it answered', async () => {
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.windowsClosed).toBe(1);
+      expect(diagnostics.vocabularyInvocations).toBe(1);
+      expect(diagnostics.lastWindowFrames).toBeGreaterThan(0);
+      expect(diagnostics.wordsEmitted).toBe(1);
+      expect(diagnostics.lastVeto).toBeNull();
+    });
+
+    it('blames the engine floor when nothing reached it', async () => {
+      vocabulary.confidence = 0.2;
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.vocabularyInvocations).toBe(1);
+      expect(diagnostics.wordsEmitted).toBe(0);
+      expect(diagnostics.lastVeto).toBe('classifier');
+      // The number the panel exists to show: without it, 0.2 and "never classified" look the
+      // same from outside, and they need opposite fixes.
+      expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.2);
+    });
+
+    it('blames the stabiliser when the engine answered and the higher floor rejected it', async () => {
+      // The two floors are different numbers — 0.45 in the engine, 0.55 here. A sign landing
+      // between them is recognised and then silently dropped.
+      vocabulary.confidence = 0.5;
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.wordsEmitted).toBe(0);
+      expect(diagnostics.lastVeto).toBe('stabilizer');
+      expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.5);
+    });
+
+    it('starts a new session from zero rather than carrying the last one over', async () => {
+      await signOnce();
+      recognize.stop();
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.windowsClosed).toBe(1);
+    });
   });
 
   it('drops the queued sign on stop, so it cannot surface in the next session', async () => {

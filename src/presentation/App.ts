@@ -1,6 +1,7 @@
 import { Container } from '@bootstrap/Container';
 import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
 import { UNSUPPORTED_LETTERS } from '@infrastructure/recognition/packs/lseAlphabet';
+import { DiagnosticsPanel } from '@presentation/components/DiagnosticsPanel';
 import {
   LandmarkOverlay,
   type OverlayState,
@@ -56,6 +57,7 @@ export function renderApp(root: HTMLElement): void {
 
     <div id="teach"></div>
     <div id="storage"></div>
+    <div id="diagnostics"></div>
 
     <section class="card">
       <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
@@ -90,6 +92,7 @@ export function renderApp(root: HTMLElement): void {
   const container = new Container(video);
   const { recognize } = container;
   const overlay = new LandmarkOverlay(overlayCanvas, video);
+  const diagnostics = new DiagnosticsPanel(must<HTMLElement>(root, '#diagnostics'));
 
   /** Green when a part is being tracked, red when it is not — at a glance, per part. */
   const showPresence = (presence: PartPresence | null) => {
@@ -140,11 +143,13 @@ export function renderApp(root: HTMLElement): void {
       // Both engines load before the camera opens, so the first sign is already recognisable
       // rather than silently ignored while weights are still arriving.
       await Promise.all([container.vocabulary.load(), container.taught.load()]);
-      await recognize.start(({ transcript, candidates, frame }) => {
+      await recognize.start((update) => {
+        const { transcript, candidates, frame } = update;
         render(transcript.toText(), candidates);
         const [state, message] = describeTracking(frame.hands.length, candidates.length > 0);
         showPresence(overlay.draw(frame, state));
         status.textContent = message;
+        diagnostics.update(update.diagnostics);
       });
       running = true;
       placeholder.hidden = true;

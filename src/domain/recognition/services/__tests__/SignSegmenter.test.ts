@@ -69,6 +69,25 @@ describe('SignSegmenter', () => {
     expect(run(segmenter, frames)).toHaveLength(0);
   });
 
+  it('counts a discarded twitch, so silence can be told from never ending a sign', () => {
+    // Both cases return null from push(). "The sign ended and was judged noise" and "nothing
+    // has ended yet" call for opposite fixes, so the panel has to be able to say which.
+    const segmenter = new SignSegmenter({ ...OPTIONS, minFrames: 12 });
+    run(segmenter, [...movingFrames(5), ...stillFrames(4, 5, 0.2)]);
+    expect(segmenter.discardedShortWindows).toBe(1);
+
+    const idle = new SignSegmenter({ ...OPTIONS, minFrames: 12 });
+    run(idle, stillFrames(20));
+    expect(idle.discardedShortWindows).toBe(0);
+  });
+
+  it('reports how much of a sign it is holding while one is in progress', () => {
+    const segmenter = new SignSegmenter(OPTIONS);
+    run(segmenter, movingFrames(6));
+    expect(segmenter.isActive).toBe(true);
+    expect(segmenter.pendingFrames).toBe(6);
+  });
+
   it('emits windows while the hand keeps moving, without ever holding still', () => {
     // The failure that made the app look broken on video: a fluent signer never pauses, so
     // waiting for stillness closed nothing at all and the vocabulary engine was never asked.

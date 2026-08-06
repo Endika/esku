@@ -19,6 +19,11 @@ export class CandidateStabilizer {
     private readonly minConfidence = 0.6,
   ) {}
 
+  /** Exposed so a rejection can be attributed to this floor rather than the engine's own. */
+  get threshold(): number {
+    return this.minConfidence;
+  }
+
   /** Returns the candidate to append to the transcript, or null while unstable. */
   accept(candidate: SignCandidate | null): SignCandidate | null {
     if (!candidate || candidate.confidence < this.minConfidence) {

@@ -1,5 +1,6 @@
 import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import type { SignCandidate } from '../value-objects/Gloss';
+import type { RawScore } from '../value-objects/RecognitionDiagnostics';
 
 /**
  * The single port every recognition engine implements, so the application layer never
@@ -25,4 +26,12 @@ export interface ISignClassifier {
   /** Loads whatever the engine needs. Safe to call twice. */
   load(): Promise<void>;
   classify(window: readonly LandmarkFrame[]): Promise<readonly SignCandidate[]>;
+  /**
+   * Best guesses from the last `classify`, *before* the engine's own confidence floor.
+   *
+   * Optional because only the vocabulary engine has a floor worth seeing through. Without
+   * it a rejected sign is indistinguishable from a sign never classified: `classify`
+   * returns an empty array in both cases.
+   */
+  readonly lastScores?: readonly RawScore[];
 }
