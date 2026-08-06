@@ -17,43 +17,51 @@ declare const __APP_VERSION__: string;
 
 export function renderApp(root: HTMLElement): void {
   root.innerHTML = `
-    <header class="masthead">
-      <img class="masthead__mark" src="${import.meta.env.BASE_URL}favicon.svg" alt="" width="44" height="44" />
-      <div>
-        <h1 class="masthead__title">Esku</h1>
-        <p class="masthead__tagline">Lengua de signos a texto, sin conexión</p>
+    <!--
+      Everything needed to actually read signs lives in one viewport-tall column, so that
+      turning the camera on never means scrolling to reach a control. Secondary panels stay
+      below it rather than behind a sheet: the diagnostics panel in particular is read *while*
+      the camera runs, and the sticky action bar keeps the controls reachable down there.
+    -->
+    <div class="shell" id="shell">
+      <header class="masthead">
+        <img class="masthead__mark" src="${import.meta.env.BASE_URL}favicon.svg" alt="" width="44" height="44" />
+        <div>
+          <h1 class="masthead__title">Esku</h1>
+          <p class="masthead__tagline">Lengua de signos a texto, sin conexión</p>
+        </div>
+      </header>
+
+      <div class="stage">
+        <video id="video" class="stage__video" playsinline muted></video>
+        <canvas id="overlay" class="stage__overlay" aria-hidden="true"></canvas>
+        <p class="stage__placeholder" id="placeholder">
+          La cámara se activa al empezar.<br />El vídeo no se graba ni sale del dispositivo.
+        </p>
+        <p class="stage__hint" id="hint" hidden></p>
+
+        <ul class="parts" id="parts">
+          ${PART_ORDER.map(
+            (part) => `
+            <li class="part" data-part="${part}">
+              <span class="part__dot" style="--part: ${PART_COLOURS[part]}"></span>
+              ${PART_LABELS[part]}
+            </li>`,
+          ).join('')}
+        </ul>
       </div>
-    </header>
 
-    <div class="stage">
-      <video id="video" class="stage__video" playsinline muted></video>
-      <canvas id="overlay" class="stage__overlay" aria-hidden="true"></canvas>
-      <p class="stage__placeholder" id="placeholder">
-        La cámara se activa al empezar.<br />El vídeo no se graba ni sale del dispositivo.
-      </p>
-      <p class="stage__hint" id="hint" hidden></p>
+      <div class="transcript" id="transcript" aria-live="polite"></div>
+
+      <p class="status" id="status" role="status"></p>
+
+      <div class="actions actions--bar">
+        <button class="button" id="toggle" type="button">Empezar a leer</button>
+        <button class="button button--quiet" id="undo" type="button">Borrar último</button>
+        <button class="button button--quiet" id="clear" type="button">Limpiar</button>
+        <button class="button button--quiet" id="flip" type="button">Cámara trasera</button>
+      </div>
     </div>
-
-    <ul class="parts" id="parts">
-      ${PART_ORDER.map(
-        (part) => `
-        <li class="part" data-part="${part}">
-          <span class="part__dot" style="--part: ${PART_COLOURS[part]}"></span>
-          ${PART_LABELS[part]}
-        </li>`,
-      ).join('')}
-    </ul>
-
-    <div class="transcript" id="transcript" aria-live="polite"></div>
-
-    <div class="actions">
-      <button class="button" id="toggle" type="button">Empezar a leer</button>
-      <button class="button button--quiet" id="undo" type="button">Borrar último</button>
-      <button class="button button--quiet" id="clear" type="button">Limpiar</button>
-      <button class="button button--quiet" id="flip" type="button">Cámara trasera</button>
-    </div>
-
-    <p class="status" id="status" role="status"></p>
 
     <div id="teach"></div>
     <div id="storage"></div>
@@ -125,6 +133,7 @@ export function renderApp(root: HTMLElement): void {
     if (running) {
       recognize.stop();
       running = false;
+      root.classList.remove('is-running');
       toggle.textContent = 'Empezar a leer';
       placeholder.hidden = false;
       hint.hidden = true;
@@ -152,6 +161,9 @@ export function renderApp(root: HTMLElement): void {
         diagnostics.update(update.diagnostics);
       });
       running = true;
+      // Camera mode: the masthead folds away, the video takes the height the fixed 3/4 ratio
+      // used to claim regardless of device, and the controls pin to the bottom of the screen.
+      root.classList.add('is-running');
       placeholder.hidden = true;
       video.classList.add('is-live');
       overlayCanvas.classList.add('is-live');
@@ -161,6 +173,8 @@ export function renderApp(root: HTMLElement): void {
         error instanceof CameraUnavailableError
           ? 'No hay cámara o se denegó el permiso. Revísalo en los ajustes del navegador.'
           : 'No se pudo iniciar el reconocimiento.';
+      // The camera never opened, so the layout must not be left claiming it did.
+      root.classList.remove('is-running');
       // Without the real cause in the console this is undiagnosable from a bug report.
       console.error(error);
     } finally {
