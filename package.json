@@ -1,7 +1,7 @@
 {
   "name": "esku",
   "private": true,
-  "version": "1.9.2",
+  "version": "1.9.3",
   "type": "module",
   "description": "Offline PWA that reads Spanish Sign Language (LSE) from your phone camera and turns it into text",
   "license": "MIT",

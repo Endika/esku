@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.3](https://github.com/Endika/esku/compare/v1.9.2...v1.9.3) (2026-08-06)
+
+
+### Bug Fixes
+
+* lower the window confidence floor to the value that was actually measured ([#45](https://github.com/Endika/esku/issues/45)) ([87d1a07](https://github.com/Endika/esku/commit/87d1a07e798a914df4ef0788d41224dfdac24781))
+
 ## [1.9.2](https://github.com/Endika/esku/compare/v1.9.1...v1.9.2) (2026-08-06)
 
 
