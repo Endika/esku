@@ -55,9 +55,30 @@ export class SignSegmenter {
   private window: LandmarkFrame[] = [];
   private stillFrames = 0;
   private active = false;
+  private shortWindows = 0;
 
   constructor(options: Partial<SegmenterOptions> = {}) {
     this.options = { ...DEFAULT_SEGMENTER_OPTIONS, ...options };
+  }
+
+  /** Mid-sign right now. Read-only; the diagnostics panel shows it live. */
+  get isActive(): boolean {
+    return this.active;
+  }
+
+  /** Frames buffered towards the current window. */
+  get pendingFrames(): number {
+    return this.window.length;
+  }
+
+  /**
+   * Windows completed and then discarded for being shorter than `minFrames`.
+   *
+   * Invisible from outside otherwise: `push` returns null both when nothing ended and when
+   * something ended and was judged too short to be a sign. Those are opposite diagnoses.
+   */
+  get discardedShortWindows(): number {
+    return this.shortWindows;
   }
 
   /** Feed one frame. Returns a completed window when a sign just ended, else null. */
@@ -100,7 +121,9 @@ export class SignSegmenter {
   private close(): readonly LandmarkFrame[] | null {
     const completed = this.window;
     this.reset();
-    return completed.length >= this.options.minFrames ? completed : null;
+    if (completed.length >= this.options.minFrames) return completed;
+    this.shortWindows += 1;
+    return null;
   }
 
   reset(): void {

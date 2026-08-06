@@ -9,6 +9,7 @@ import {
   createGloss,
   type SignCandidate,
 } from '@domain/recognition/value-objects/Gloss';
+import type { RawScore } from '@domain/recognition/value-objects/RecognitionDiagnostics';
 import {
   affine,
   type GruDirection,
@@ -66,11 +67,17 @@ export class VocabularySignClassifier implements ISignClassifier {
 
   private manifest: VocabularyManifest | null = null;
   private tensors: Map<string, Float32Array> | null = null;
+  private rawTop: readonly RawScore[] = [];
 
   constructor(
     private readonly manifestUrl: string,
     private readonly weightsUrl: string,
   ) {}
+
+  /** The last window's best concepts with `MIN_CONFIDENCE` not applied. See ISignClassifier. */
+  get lastScores(): readonly RawScore[] {
+    return this.rawTop;
+  }
 
   isReady(): boolean {
     return this.tensors !== null;
@@ -114,16 +121,20 @@ export class VocabularySignClassifier implements ISignClassifier {
 
     const probabilities = softmax(this.forward(vocabularySignature(window), manifest, tensors));
 
-    return manifest.concepts
-      .map((concept, i) => ({ concept, probability: probabilities[i] ?? 0 }))
-      .filter(({ probability }) => probability >= MIN_CONFIDENCE)
-      .map(({ concept, probability }) => ({
+    const ranked = manifest.concepts
+      .map((concept, i) => ({
         gloss: createGloss(concept),
-        confidence: probability,
+        confidence: probabilities[i] ?? 0,
         source: 'vocabulary' as const,
       }))
       .sort(byConfidenceDescending)
       .slice(0, MAX_CANDIDATES);
+
+    // Kept before the floor is applied: a window that scored 0.44 and one that was never
+    // classified both leave `classify` empty, and they need opposite fixes.
+    this.rawTop = ranked.map(({ gloss, confidence }) => ({ text: gloss.text, confidence }));
+
+    return ranked.filter(({ confidence }) => confidence >= MIN_CONFIDENCE);
   }
 
   private forward(

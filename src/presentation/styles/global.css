@@ -433,3 +433,40 @@ body {
   background: var(--danger);
   opacity: 0.8;
 }
+
+/* Numbers, not prose: read at a glance on a phone while the camera is running. */
+.diagnostics {
+  margin-top: var(--gap);
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
+.diagnostics__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface-raised);
+}
+
+.diagnostics__row dt {
+  color: var(--text-muted);
+}
+
+.diagnostics__row dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Three concepts and their scores do not fit beside a label on a phone. */
+.diagnostics__row--wide {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.diagnostics__row--wide dd {
+  text-align: left;
+}
