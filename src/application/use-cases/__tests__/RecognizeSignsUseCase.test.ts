@@ -189,14 +189,14 @@ describe('RecognizeSignsUseCase', () => {
     });
 
     it('blames the stabiliser when the engine answered and the higher floor rejected it', async () => {
-      // The two floors are different numbers — 0.45 in the engine, 0.55 here. A sign landing
+      // Two floors, and the higher one decides: 0.45 in the engine, 0.50 here. A sign landing
       // between them is recognised and then silently dropped.
-      vocabulary.confidence = 0.5;
+      vocabulary.confidence = 0.47;
       const diagnostics = await signOnce();
 
       expect(diagnostics.wordsEmitted).toBe(0);
       expect(diagnostics.lastVeto).toBe('stabilizer');
-      expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.5);
+      expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.47);
     });
 
     it('starts a new session from zero rather than carrying the last one over', async () => {
