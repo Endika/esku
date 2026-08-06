@@ -1,0 +1,12 @@
+{
+  "name": "esku-browser-harness",
+  "private": true,
+  "type": "module",
+  "description": "Runs the built app in a real browser against a known recording. Never installed by the app or by CI.",
+  "scripts": {
+    "harness": "node harness.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^24.0.0"
+  }
+}

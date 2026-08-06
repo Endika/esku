@@ -26,3 +26,8 @@ tools/train/artifacts
 
 # Landmarks derived from corpora with no established licence. Never commit these.
 tools/train/.cache_*.npz
+
+# Browser harness: a ~190 MB Chrome and the SWL-LSE clips. Both are downloads, see its README.
+tools/browser/chrome-linux64
+tools/browser/videos
+tools/browser/*.zip
