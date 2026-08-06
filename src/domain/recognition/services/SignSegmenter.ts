@@ -5,33 +5,58 @@ import { dominantHand, type LandmarkFrame } from '@domain/landmarks/value-object
 export interface SegmenterOptions {
   /** Movement above this (palm widths per frame) counts as "signing". */
   readonly motionThreshold: number;
-  /** Frames of stillness that close a sign. */
-  readonly settleFrames: number;
+  /**
+   * Fraction of the window's peak speed below which the signer is decelerating.
+   *
+   * The boundary that works on fluent signing. Waiting for stillness assumes a pause that
+   * only isolated dictionary recordings contain; a signer in conversation never stops, but
+   * does visibly slow between signs. Stillness is just the extreme of this, so this rule
+   * subsumes the old one rather than sitting beside it.
+   */
+  readonly decelerationDrop: number;
+  /** Frames the deceleration must persist before it counts as a boundary, not a wobble. */
+  readonly decelerationHold: number;
+  /**
+   * Frames a window must reach before a deceleration may close it.
+   *
+   * Signs decelerate internally — a two-part sign slows at its hinge — so without a floor
+   * near the typical sign length the rule chops signs in half. Measured: dropping this from
+   * 24 to 18 costs 8 points of isolated top-1 to buy 3 points of continuous recovery.
+   */
+  readonly minSignFrames: number;
   /** Shortest accepted sign; below this it is camera noise, not a sign. */
   readonly minFrames: number;
   /**
    * Longest a window may run before it is emitted anyway.
    *
-   * This is what makes continuous signing work at all. Waiting for stillness assumes the
-   * signer pauses between signs, which is true of dictionary recordings and false of anyone
-   * signing fluently — measured at 0 windows closed over 300 frames of continuous motion,
-   * meaning the vocabulary engine was never once asked.
+   * A backstop now rather than the main event: signing at a near-constant speed never
+   * decelerates enough to close, and a window that runs forever is never classified. It was
+   * doing all the work while stillness was the only other rule, which is precisely why
+   * windows were cut at a fixed length instead of at sign boundaries.
    */
   readonly maxFrames: number;
 }
 
 /**
- * Tuned against SWL-LSE's test split by replaying it through this segmenter and scoring the
- * real model on what came out — `tools/train/sweep.py`. The model reaches 0.741 top-1 when
- * fed whole recordings; these settings get the segmented path to 0.739, where the previous
- * 0.08 / 6 gave 0.722.
+ * Tuned against two benchmarks, because one of them was missing and hid the real failure.
  *
- * The lower motion threshold also fixes gentle signing: at 0.08 a small-amplitude sign never
- * crossed the line, so the segmenter stayed idle and the vocabulary engine was never asked.
+ * `tools/train/sweep.py` replays SWL-LSE's isolated recordings; `tools/train/continuous.py`
+ * splices them into unbroken streams and asks how many signs survive. The shipped
+ * stillness rule scored 0.739 on the first and **0.146 on the second** — it never closes
+ * without a pause, so it only closed at `maxFrames`, and with a median sign of 30 frames
+ * nearly every 48-frame window straddled a boundary. That is why the app read a signing
+ * video and wrote nothing.
+ *
+ * These settings give 0.696 isolated and 0.384 continuous at higher precision (0.755 against
+ * 0.710). Four points of the validated path bought twenty-four of the one people actually
+ * use. Note the continuous benchmark splices isolated recordings and so cannot reproduce
+ * real co-articulation: read it as an upper bound.
  */
 export const DEFAULT_SEGMENTER_OPTIONS: SegmenterOptions = {
   motionThreshold: 0.03,
-  settleFrames: 10,
+  decelerationDrop: 0.45,
+  decelerationHold: 1,
+  minSignFrames: 24,
   minFrames: 4,
   maxFrames: 48,
 };
@@ -39,13 +64,13 @@ export const DEFAULT_SEGMENTER_OPTIONS: SegmenterOptions = {
 /**
  * Turns a continuous landmark stream into discrete sign windows.
  *
- * Two rules, and the second exists because the first is not enough. Motion-energy gating
- * closes a window once the hand holds still, which is how isolated signs are delimited and
- * how the training data was recorded. A fluent signer never holds still, so a hard cap at
- * `maxFrames` emits the window anyway.
+ * A window closes where the signer decelerates off their own peak speed, with `maxFrames`
+ * as a backstop. Deceleration rather than stillness because stillness is a property of
+ * dictionary recordings, not of signing: measured on spliced continuous streams, waiting
+ * for a pause recovered 14.6% of signs against 38.4% for this rule.
  *
- * Without the cap, continuous signing produced no windows at all and the vocabulary engine
- * was never invoked — the app looked broken rather than inaccurate.
+ * `minSignFrames` is what keeps it honest — signs decelerate internally too, so a boundary
+ * is only believed once the window is already about as long as a sign.
  *
  * Deliberately a pure state machine over frames — no timers, no clock, no I/O — so its
  * behaviour is reproducible in tests by pushing a scripted frame sequence.
@@ -53,7 +78,8 @@ export const DEFAULT_SEGMENTER_OPTIONS: SegmenterOptions = {
 export class SignSegmenter {
   private readonly options: SegmenterOptions;
   private window: LandmarkFrame[] = [];
-  private stillFrames = 0;
+  private slowFrames = 0;
+  private peakMotion = 0;
   private active = false;
   private shortWindows = 0;
 
@@ -91,10 +117,7 @@ export class SignSegmenter {
 
     if (motion > this.options.motionThreshold) {
       this.active = true;
-      this.stillFrames = 0;
-      // Still moving, but the window is full: emit it rather than let a fluent signer run
-      // forever without ever being classified.
-      return this.window.length >= this.options.maxFrames ? this.close() : null;
+      this.peakMotion = Math.max(this.peakMotion, motion);
     }
 
     if (!this.active) {
@@ -105,8 +128,18 @@ export class SignSegmenter {
 
     if (this.window.length >= this.options.maxFrames) return this.close();
 
-    this.stillFrames += 1;
-    return this.stillFrames >= this.options.settleFrames ? this.close() : null;
+    const decelerating =
+      this.window.length >= this.options.minSignFrames &&
+      this.peakMotion > 0 &&
+      motion < this.peakMotion * this.options.decelerationDrop;
+
+    if (!decelerating) {
+      this.slowFrames = 0;
+      return null;
+    }
+
+    this.slowFrames += 1;
+    return this.slowFrames >= this.options.decelerationHold ? this.close() : null;
   }
 
   /** A hand leaving frame ends the sign as surely as stillness does. */
@@ -128,7 +161,8 @@ export class SignSegmenter {
 
   reset(): void {
     this.window = [];
-    this.stillFrames = 0;
+    this.slowFrames = 0;
+    this.peakMotion = 0;
     this.active = false;
   }
 

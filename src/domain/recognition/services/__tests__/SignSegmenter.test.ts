@@ -2,7 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
 import { SignSegmenter } from '../SignSegmenter';
 
-const OPTIONS = { motionThreshold: 0.08, settleFrames: 3, minFrames: 4, maxFrames: 20 };
+const OPTIONS = {
+  motionThreshold: 0.08,
+  decelerationDrop: 0.45,
+  decelerationHold: 1,
+  minSignFrames: 6,
+  minFrames: 4,
+  maxFrames: 20,
+};
+
+/**
+ * Frames whose per-step travel is scripted, so a test can slow the signer down without
+ * stopping them. `buildHand`'s palm is 0.22 wide, so a step of 0.05 reads as motion 0.23
+ * and a step of 0.02 as 0.09 — still above `motionThreshold`, still visibly "signing".
+ */
+function pacedFrames(steps: readonly number[]) {
+  let x = 0;
+  return steps.map((step, i) => {
+    x += step;
+    return buildFrame(i * 33, buildHand({ offset: { x, y: 0 } }));
+  });
+}
 
 /** Feeds frames and collects every window the segmenter closes. */
 function run(segmenter: SignSegmenter, frames: ReturnType<typeof buildFrame>[]) {
@@ -132,5 +152,29 @@ describe('SignSegmenter', () => {
   it('ignores an empty stream', () => {
     const segmenter = new SignSegmenter(OPTIONS);
     expect(run(segmenter, [buildFrame(0, null), buildFrame(33, null)])).toHaveLength(0);
+  });
+
+  it('closes on a deceleration, without the signer ever holding still', () => {
+    // The failure that made the app read a signing video and write nothing. A fluent signer
+    // never stops, so a stillness rule only ever closed at maxFrames — and with a median
+    // sign of 30 frames every fixed-length window straddled a boundary. Measured on spliced
+    // continuous streams: 14.6% of signs recovered before this rule, 38.4% after.
+    const segmenter = new SignSegmenter(OPTIONS);
+    // Fast throughout, then slower — but never below the threshold that counts as signing.
+    const frames = pacedFrames([...Array(10).fill(0.05), ...Array(4).fill(0.02)]);
+
+    const closed = run(segmenter, frames);
+
+    expect(closed).toHaveLength(1);
+    expect(closed[0]!.length).toBeLessThan(OPTIONS.maxFrames);
+  });
+
+  it('does not cut a sign at its own internal slow-down', () => {
+    // Signs decelerate mid-way too — a two-part sign slows at its hinge. Believing that is
+    // a boundary halves every sign, and costs 8 points of isolated accuracy.
+    const segmenter = new SignSegmenter({ ...OPTIONS, minSignFrames: 12 });
+    const frames = pacedFrames([0.05, 0.05, 0.02, 0.05, 0.05, 0.05]);
+
+    expect(run(segmenter, frames)).toHaveLength(0);
   });
 });
