@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.2](https://github.com/Endika/esku/compare/v1.9.1...v1.9.2) (2026-08-06)
+
+
+### Bug Fixes
+
+* close sign windows on deceleration instead of waiting for stillness ([#43](https://github.com/Endika/esku/issues/43)) ([26e4f86](https://github.com/Endika/esku/commit/26e4f86f69dcf5600091f73876a62d9fc2f4c519))
+
 ## [1.9.1](https://github.com/Endika/esku/compare/v1.9.0...v1.9.1) (2026-08-06)
 
 
