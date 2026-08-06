@@ -40,7 +40,16 @@ const EMPTY_FRAME: LandmarkFrame = { timestampMs: 0, hands: [] };
 export class RecognizeSignsUseCase {
   private readonly segmenter = new SignSegmenter();
   private readonly frameStabilizer = new CandidateStabilizer();
-  private readonly windowStabilizer = new CandidateStabilizer(1, 0.55);
+  /**
+   * 0.50, and the second number is the one that matters — it is a *second* floor, applied
+   * on top of the 0.45 the vocabulary engine already enforces, so it alone decides.
+   *
+   * It sat at 0.55 unmeasured. Swept over the continuous benchmark, 0.50 recovers 36.6% of
+   * signs against 33.6% at 0.55 with identical precision (78.5% against 78.4%) — three
+   * points of recall for nothing. Below 0.50 the trade turns real: 0.45 buys another two
+   * points of recall at three points of precision.
+   */
+  private readonly windowStabilizer = new CandidateStabilizer(1, 0.5);
   private transcript = new Transcript();
   private listener: RecognitionListener | null = null;
   /** Guards against overlapping async classify calls piling up behind a slow frame. */
