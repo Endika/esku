@@ -40,7 +40,29 @@ and trains better: fewer classes, more examples each.
 
 Keep the concept mapping in the exported label file so the app can name what it predicts.
 
-## Status
+## Measuring
 
-Not yet implemented. The port (`ISignClassifier`) and the app-side loader are in place, so
-this pipeline can be built without touching the rest of the app.
+Three benchmarks, and the third exists because the first two agreed with each other and
+with nothing else.
+
+| script | what it answers |
+| --- | --- |
+| `simulate_app.py` | accuracy on isolated signs, fed the way the app segments them |
+| `continuous.py` | how many signs survive **fluent** signing, by splicing test recordings into unbroken streams with known boundaries |
+| `sweep_continuous.py` | re-tunes the segmenter against both at once — they pull in opposite directions |
+
+`continuous.py` is what found the bug that made the app write nothing: the old segmenter
+scored 0.739 isolated and **0.146** continuous. Everything the project measured came from
+isolated signs, and the app is used on fluent signing. Note it splices isolated recordings
+and so cannot reproduce real co-articulation — read it as an upper bound.
+
+### Checking against a second corpus
+
+`check_calse.py <videos> [per-signer]` runs the segmenter over an unrelated LSE corpus of
+isolated signs and counts how many windows each single-sign video produces. It should be
+one. Against CALSE100 it is 2.56, with the median window landing exactly on
+`minSignFrames` — the segmenter closes at the first permitted moment rather than at a
+boundary, which means the tuning above is fitted to SWL-LSE rather than to signing.
+
+That corpus is not in this repository and its terms of use are unknown, hence the path
+argument. Do not train on it or redistribute any part of it without establishing a licence.
