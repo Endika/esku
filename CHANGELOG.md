@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.0](https://github.com/Endika/esku/compare/v1.9.3...v1.10.0) (2026-08-06)
+
+
+### Features
+
+* give the camera its own layout so no control needs a scroll ([#49](https://github.com/Endika/esku/issues/49)) ([488f1bf](https://github.com/Endika/esku/commit/488f1bfe51d2eb881fd15ad066c629c5c23b7e84))
+
 ## [1.9.3](https://github.com/Endika/esku/compare/v1.9.2...v1.9.3) (2026-08-06)
 
 
