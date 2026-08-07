@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.2](https://github.com/Endika/esku/compare/v1.10.1...v1.10.2) (2026-08-07)
+
+
+### Bug Fixes
+
+* measure sign windows in time, so recognition survives any frame rate ([f4ff381](https://github.com/Endika/esku/commit/f4ff38171a4bce34a631a02e60c4abf55ad25105))
+
 ## [1.10.1](https://github.com/Endika/esku/compare/v1.10.0...v1.10.1) (2026-08-06)
 
 
