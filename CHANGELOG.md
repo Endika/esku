@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.11.0](https://github.com/Endika/esku/compare/v1.10.2...v1.11.0) (2026-08-07)
+
+
+### Features
+
+* draw the icon as a hand mid-sign, since a still palm is not a sign ([d7804e2](https://github.com/Endika/esku/commit/d7804e29c16eb3dae0fdc3b9a7195dc783ad3701))
+
 ## [1.10.2](https://github.com/Endika/esku/compare/v1.10.1...v1.10.2) (2026-08-07)
 
 
