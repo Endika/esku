@@ -28,27 +28,33 @@ export class StoragePanel {
 
   private render(): void {
     this.root.innerHTML = `
-      <section class="card">
-        <h2 class="card__title">Espacio en el dispositivo</h2>
-        <p class="card__body">
-          El motor de reconocimiento son unos <strong>19 MB de descarga</strong>, que ocupan
-          <strong>30 MB en el dispositivo</strong> una vez descomprimidos. Se guarda la primera
-          vez que lo usas para que después funcione sin conexión. Puedes descargarlo ahora o
-          liberarlo cuando quieras: se volverá a bajar la próxima vez que enciendas la cámara.
-        </p>
+      <details class="card">
+        <summary class="card__summary">
+          <h2 class="card__title">Espacio en el dispositivo</h2>
+          <span class="card__note">19 MB de descarga, 30 MB guardados</span>
+        </summary>
 
-        <p class="storage" id="storage-figure">—</p>
+        <div class="card__content">
+          <p class="card__body">
+            El motor de reconocimiento son unos <strong>19 MB de descarga</strong>, que ocupan
+            <strong>30 MB en el dispositivo</strong> una vez descomprimidos. Se guarda la primera
+            vez que lo usas para que después funcione sin conexión. Puedes descargarlo ahora o
+            liberarlo cuando quieras: se volverá a bajar la próxima vez que enciendas la cámara.
+          </p>
 
-        <div class="actions">
-          <button class="button button--quiet" id="preload" type="button">Descargar ahora</button>
-          <button class="button button--quiet" id="clear" type="button">Liberar espacio</button>
+          <p class="storage" id="storage-figure">—</p>
+
+          <div class="actions">
+            <button class="button button--quiet" id="preload" type="button">Descargar ahora</button>
+            <button class="button button--quiet" id="clear" type="button">Liberar espacio</button>
+          </div>
+
+          <p class="status" id="storage-status" role="status"></p>
+          <p class="card__body card__body--tight">
+            Los signos que le hayas enseñado no se borran con esto: son tuyos y se guardan aparte.
+          </p>
         </div>
-
-        <p class="status" id="storage-status" role="status"></p>
-        <p class="card__body card__body--tight">
-          Los signos que le hayas enseñado no se borran con esto: son tuyos y se guardan aparte.
-        </p>
-      </section>
+      </details>
     `;
 
     this.button('preload').addEventListener('click', () => void this.preload());

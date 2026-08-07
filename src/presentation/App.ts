@@ -67,20 +67,33 @@ export function renderApp(root: HTMLElement): void {
     <div id="storage"></div>
     <div id="diagnostics"></div>
 
-    <section class="card">
-      <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
-      <p class="card__body">
-        <strong>Vocabulario LSE:</strong> 238 signos de ámbito sanitario, entrenados sobre
-        SWL-LSE. Acierta el signo exacto en torno a <strong>2 de cada 3 veces</strong>, y está
-        entre sus tres primeras opciones en <strong>8 de cada 10</strong>. Es un modelo real,
-        no infalible: revisa el texto antes de darlo por bueno.
-      </p>
-      <p class="card__body" style="margin-top: 10px">
-        <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
-        vocabulario. Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>:
-        unas se trazan con movimiento y otras dependen de la orientación de la palma.
-      </p>
-    </section>
+    <!--
+      The reliability figure lives in the summary, not behind it. Folding this card away
+      saves 363 px, but what made it worth having was saying out loud that the model is
+      fallible — so that sentence has to survive the fold.
+    -->
+    <details class="card">
+      <summary class="card__summary">
+        <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
+        <span class="card__note">
+          238 signos LSE y el alfabeto — acierta el signo exacto en torno a 2 de cada 3 veces
+        </span>
+      </summary>
+
+      <div class="card__content">
+        <p class="card__body">
+          <strong>Vocabulario LSE:</strong> 238 signos de ámbito sanitario, entrenados sobre
+          SWL-LSE. Acierta el signo exacto en torno a <strong>2 de cada 3 veces</strong>, y está
+          entre sus tres primeras opciones en <strong>8 de cada 10</strong>. Es un modelo real,
+          no infalible: revisa el texto antes de darlo por bueno.
+        </p>
+        <p class="card__body" style="margin-top: 10px">
+          <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
+          vocabulario. Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>:
+          unas se trazan con movimiento y otras dependen de la orientación de la palma.
+        </p>
+      </div>
+    </details>
 
     <p class="footnote">
       v${__APP_VERSION__} · Vocabulario LSE sobre
