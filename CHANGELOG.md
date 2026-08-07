@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/Endika/esku/compare/v1.11.0...v1.12.0) (2026-08-07)
+
+
+### Features
+
+* **ui:** plegar la portada y dejar la barra de acciones en una fila ([#56](https://github.com/Endika/esku/issues/56)) ([a62d3cc](https://github.com/Endika/esku/commit/a62d3cc96bd059cc99d6438205ca93595d6f2632))
+
 ## [1.11.0](https://github.com/Endika/esku/compare/v1.10.2...v1.11.0) (2026-08-07)
 
 
