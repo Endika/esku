@@ -67,8 +67,9 @@ body {
 #app {
   --pad-top: 20px;
   --pad-bottom: calc(40px + env(safe-area-inset-bottom));
-  /* Height of the pinned action bar in camera mode, reserved so nothing hides beneath it. */
-  --bar: 72px;
+  /* Height of the pinned action bar in camera mode, reserved so nothing hides beneath it.
+     App.ts replaces this with the bar's measured height; the value here is the one-row case. */
+  --bar: 68px;
 
   max-width: 560px;
   margin: 0 auto;
@@ -314,6 +315,41 @@ details[open] > .card__summary::after {
 }
 
 /*
+ * Switching camera, on the camera. Bottom right rather than top: the body-part chips already
+ * own the top edge, and the recognised word sits centred, so this corner is the free one.
+ */
+.stage__flip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  cursor: pointer;
+}
+
+#app.is-running .stage__flip {
+  display: grid;
+}
+
+.stage__flip:disabled {
+  opacity: 0.5;
+}
+
+.stage__flip:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/*
  * Pinned rather than merely sticky: the diagnostics panel is read *while* the camera runs,
  * and scrolling down to it must not strand the user without a stop button.
  */
@@ -360,6 +396,20 @@ details[open] > .card__summary::after {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: var(--gap);
+}
+
+/* Alone it fills the row; beside undo and clear it takes what is left. */
+.button--grow {
+  flex: 1 1 auto;
+}
+
+.actions__edit {
+  display: flex;
+  gap: 10px;
+}
+
+.actions__edit[hidden] {
+  display: none;
 }
 
 .button {
