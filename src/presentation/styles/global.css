@@ -67,8 +67,9 @@ body {
 #app {
   --pad-top: 20px;
   --pad-bottom: calc(40px + env(safe-area-inset-bottom));
-  /* Height of the pinned action bar in camera mode, reserved so nothing hides beneath it. */
-  --bar: 72px;
+  /* Height of the pinned action bar in camera mode, reserved so nothing hides beneath it.
+     App.ts replaces this with the bar's measured height; the value here is the one-row case. */
+  --bar: 68px;
 
   max-width: 560px;
   margin: 0 auto;
@@ -163,6 +164,80 @@ body {
   margin: 0;
 }
 
+/*
+ * Collapsible card.
+ *
+ * Everything below the camera is secondary, and open by default it came to 1615 px of a
+ * 2624 px page — the storage card alone was taller than the video. `details` rather than a
+ * button and a `hidden` class: open/closed state, keyboard operation and the right
+ * semantics come with the element, and the summary keeps the headline readable while shut.
+ */
+details.card {
+  padding: 0;
+}
+
+.card__summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 16px 20px;
+  min-height: 56px;
+  cursor: pointer;
+  /* Both spellings: the default triangle would sit beside our own chevron. */
+  list-style: none;
+}
+
+.card__summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Grid children default to min-width:auto and would push a long headline past the card. */
+.card__summary > * {
+  min-width: 0;
+}
+
+.card__summary .card__title {
+  margin: 0;
+}
+
+.card__note {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.card__summary::after {
+  content: '';
+  grid-column: 2;
+  grid-row: 1 / -1;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--text-muted);
+  border-bottom: 2px solid var(--text-muted);
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform 0.2s ease;
+}
+
+details[open] > .card__summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.card__summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: var(--radius-lg);
+}
+
+.card__content {
+  padding: 0 20px 20px;
+}
+
+.card__subtitle {
+  font-size: 0.95rem;
+  font-weight: 620;
+  margin: 22px 0 4px;
+}
+
 /* The camera frame. Aspect-ratio rather than a fixed height so it never letterboxes. */
 .stage {
   position: relative;
@@ -237,6 +312,43 @@ body {
 
 .actions--bar {
   margin-top: 0;
+  /* The first collapsed card sits right under it, and without this they read as one block. */
+  margin-bottom: var(--gap);
+}
+
+/*
+ * Switching camera, on the camera. Bottom right rather than top: the body-part chips already
+ * own the top edge, and the recognised word sits centred, so this corner is the free one.
+ */
+.stage__flip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text);
+  cursor: pointer;
+}
+
+#app.is-running .stage__flip {
+  display: grid;
+}
+
+.stage__flip:disabled {
+  opacity: 0.5;
+}
+
+.stage__flip:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
 }
 
 /*
@@ -286,6 +398,20 @@ body {
   flex-wrap: wrap;
   gap: 10px;
   margin-top: var(--gap);
+}
+
+/* Alone it fills the row; beside undo and clear it takes what is left. */
+.button--grow {
+  flex: 1 1 auto;
+}
+
+.actions__edit {
+  display: flex;
+  gap: 10px;
+}
+
+.actions__edit[hidden] {
+  display: none;
 }
 
 .button {

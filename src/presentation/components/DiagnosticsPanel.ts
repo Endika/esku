@@ -34,7 +34,6 @@ const VETO_LABELS: Record<WindowVeto, string> = {
  * reproducing.
  */
 export class DiagnosticsPanel {
-  private open = false;
   private latest: RecognitionDiagnostics = EMPTY_DIAGNOSTICS;
 
   constructor(private readonly root: HTMLElement) {
@@ -43,31 +42,30 @@ export class DiagnosticsPanel {
 
   update(diagnostics: RecognitionDiagnostics): void {
     this.latest = diagnostics;
-    if (this.open) this.paint();
+    // Painting a shut panel is work nobody sees, at the frame rate of the camera.
+    if (this.details().open) this.paint();
   }
 
   private render(): void {
     this.root.innerHTML = `
-      <section class="card">
-        <h2 class="card__title">Diagnóstico</h2>
-        <p class="card__body">
-          Para entender por qué no aparece una palabra. No hace falta para usar la app.
-        </p>
-        <div class="actions">
-          <button class="button button--quiet" id="diag-toggle" type="button">Ver diagnóstico</button>
-        </div>
-        <dl class="diagnostics" id="diag-body" hidden></dl>
-      </section>
+      <details class="card">
+        <summary class="card__summary">
+          <h2 class="card__title">Diagnóstico</h2>
+          <span class="card__note">Por qué no aparece una palabra</span>
+        </summary>
+        <dl class="diagnostics card__content" id="diag-body"></dl>
+      </details>
     `;
 
-    this.root.querySelector<HTMLButtonElement>('#diag-toggle')!.addEventListener('click', () => {
-      this.open = !this.open;
-      this.body().hidden = !this.open;
-      this.root.querySelector<HTMLButtonElement>('#diag-toggle')!.textContent = this.open
-        ? 'Ocultar diagnóstico'
-        : 'Ver diagnóstico';
-      if (this.open) this.paint();
+    // Opening it must show the latest reading, not wait for the next frame — the panel is
+    // also opened with the camera off, when no further update is ever coming.
+    this.details().addEventListener('toggle', () => {
+      if (this.details().open) this.paint();
     });
+  }
+
+  private details(): HTMLDetailsElement {
+    return this.root.querySelector<HTMLDetailsElement>('details')!;
   }
 
   private body(): HTMLElement {

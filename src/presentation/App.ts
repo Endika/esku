@@ -49,17 +49,32 @@ export function renderApp(root: HTMLElement): void {
             </li>`,
           ).join('')}
         </ul>
+
+        <!-- On the camera, not in the action bar: it is a control about the camera, the same
+             argument that put the body-part chips here. Off, it would be a button that does
+             nothing visible. -->
+        <button class="stage__flip" id="flip" type="button" aria-label="Cambiar a cámara trasera">
+          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
+               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 9h3l1.6-2.2h6.8L17 9h3v10H4z" />
+            <path d="M9.6 14.2a2.6 2.6 0 0 0 4.9.9M14.4 13a2.6 2.6 0 0 0-4.9-.9" />
+            <path d="M9.4 10.6v1.5h1.5M14.6 15.6v-1.5h-1.5" />
+          </svg>
+        </button>
       </div>
 
       <div class="transcript" id="transcript" aria-live="polite"></div>
 
       <p class="status" id="status" role="status"></p>
 
-      <div class="actions actions--bar">
-        <button class="button" id="toggle" type="button">Empezar a leer</button>
-        <button class="button button--quiet" id="undo" type="button">Borrar último</button>
-        <button class="button button--quiet" id="clear" type="button">Limpiar</button>
-        <button class="button button--quiet" id="flip" type="button">Cámara trasera</button>
+      <!-- One row: the four buttons this replaces wrapped to two on a 390 px phone and to
+           three at 320 px, and two of them acted on a transcript that did not exist yet. -->
+      <div class="actions actions--bar" id="actions">
+        <button class="button button--grow" id="toggle" type="button">Empezar a leer</button>
+        <div class="actions__edit" id="edit" hidden>
+          <button class="button button--quiet" id="undo" type="button">Deshacer</button>
+          <button class="button button--quiet" id="clear" type="button">Limpiar</button>
+        </div>
       </div>
     </div>
 
@@ -67,20 +82,31 @@ export function renderApp(root: HTMLElement): void {
     <div id="storage"></div>
     <div id="diagnostics"></div>
 
-    <section class="card">
-      <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
-      <p class="card__body">
-        <strong>Vocabulario LSE:</strong> 238 signos de ámbito sanitario, entrenados sobre
-        SWL-LSE. Acierta el signo exacto en torno a <strong>2 de cada 3 veces</strong>, y está
-        entre sus tres primeras opciones en <strong>8 de cada 10</strong>. Es un modelo real,
-        no infalible: revisa el texto antes de darlo por bueno.
-      </p>
-      <p class="card__body" style="margin-top: 10px">
-        <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
-        vocabulario. Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>:
-        unas se trazan con movimiento y otras dependen de la orientación de la palma.
-      </p>
-    </section>
+    <!--
+      The reliability figure lives in the summary, not behind it. Folding this card away
+      saves 363 px, but what made it worth having was saying out loud that the model is
+      fallible — so that sentence has to survive the fold.
+    -->
+    <details class="card">
+      <summary class="card__summary">
+        <h2 class="card__title">Qué reconoce</h2>
+        <span class="card__note">238 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
+      </summary>
+
+      <div class="card__content">
+        <p class="card__body">
+          <strong>Vocabulario LSE:</strong> 238 signos de ámbito sanitario, entrenados sobre
+          SWL-LSE. Acierta el signo exacto en torno a <strong>2 de cada 3 veces</strong>, y está
+          entre sus tres primeras opciones en <strong>8 de cada 10</strong>. Es un modelo real,
+          no infalible: revisa el texto antes de darlo por bueno.
+        </p>
+        <p class="card__body" style="margin-top: 10px">
+          <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
+          vocabulario. Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>:
+          unas se trazan con movimiento y otras dependen de la orientación de la palma.
+        </p>
+      </div>
+    </details>
 
     <p class="footnote">
       v${__APP_VERSION__} · Vocabulario LSE sobre
@@ -95,6 +121,15 @@ export function renderApp(root: HTMLElement): void {
   const transcriptEl = must<HTMLElement>(root, '#transcript');
   const toggle = must<HTMLButtonElement>(root, '#toggle');
   const status = must<HTMLElement>(root, '#status');
+  const edit = must<HTMLElement>(root, '#edit');
+
+  // In camera mode the bar is fixed, so the page reserves its height at the bottom. Measured
+  // rather than hard-coded: it grows a second row on a narrow phone once the transcript has
+  // text, and a stale constant would leave the last panel hidden underneath it.
+  const actions = must<HTMLElement>(root, '#actions');
+  new ResizeObserver(() => {
+    root.style.setProperty('--bar', `${actions.offsetHeight}px`);
+  }).observe(actions);
 
   const parts = must<HTMLElement>(root, '#parts');
   const container = new Container(video);
@@ -114,6 +149,9 @@ export function renderApp(root: HTMLElement): void {
 
   const render = (text: string, candidates: readonly { gloss: { text: string } }[]) => {
     transcriptEl.textContent = text;
+    // Undo and clear exist only once there is something to undo or clear. Every path that
+    // changes the transcript comes through here, so this is the single place that decides.
+    edit.hidden = text.length === 0;
     const top = candidates[0]?.gloss.text;
     hint.hidden = !top;
     if (top) hint.textContent = top.toUpperCase();
@@ -204,7 +242,11 @@ export function renderApp(root: HTMLElement): void {
       const mirrored = next === 'user';
       video.classList.toggle('is-flipped', !mirrored);
       overlayCanvas.classList.toggle('is-flipped', !mirrored);
-      flip.textContent = mirrored ? 'Cámara trasera' : 'Cámara frontal';
+      // The icon says "switch", so the name has to say which way — it is the only label.
+      flip.setAttribute(
+        'aria-label',
+        mirrored ? 'Cambiar a cámara trasera' : 'Cambiar a cámara frontal',
+      );
       status.textContent = mirrored
         ? 'Cámara frontal: para signar tú.'
         : 'Cámara trasera: para leer a quien tienes delante.';

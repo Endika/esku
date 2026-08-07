@@ -35,36 +35,41 @@ export class TeachSignPanel {
   }
 
   private render(): void {
+    // Teaching and the resulting list are one subject, and an empty list did not deserve a
+    // card of its own on a page that already ran three screens long.
     this.root.innerHTML = `
-      <section class="card">
-        <h2 class="card__title">Enseñar un signo</h2>
-        <p class="card__body">
-          Graba el mismo signo ${MIN_PROTOTYPES_PER_SIGN} veces y escribe la palabra que debe
-          aparecer. Funciona con cualquier signo y cualquier lengua de signos, y se queda en
-          este dispositivo.
-        </p>
+      <details class="card">
+        <summary class="card__summary">
+          <h2 class="card__title">Enseñar un signo</h2>
+          <span class="card__note">Cualquier signo, cualquier lengua, sólo aquí</span>
+        </summary>
 
-        <label class="field">
-          <span class="field__label">Palabra que se escribirá</span>
-          <input id="sign-text" class="field__input" type="text" maxlength="40"
-                 placeholder="ibuprofeno" autocomplete="off" />
-        </label>
+        <div class="card__content">
+          <p class="card__body">
+            Graba el mismo signo ${MIN_PROTOTYPES_PER_SIGN} veces y escribe la palabra que debe
+            aparecer.
+          </p>
 
-        <div class="takes" id="takes"></div>
+          <label class="field">
+            <span class="field__label">Palabra que se escribirá</span>
+            <input id="sign-text" class="field__input" type="text" maxlength="40"
+                   placeholder="ibuprofeno" autocomplete="off" />
+          </label>
 
-        <div class="actions">
-          <button class="button" id="record" type="button">Grabar una toma</button>
-          <button class="button button--quiet" id="save" type="button" disabled>Guardar</button>
-          <button class="button button--quiet" id="reset" type="button">Descartar tomas</button>
+          <div class="takes" id="takes"></div>
+
+          <div class="actions">
+            <button class="button" id="record" type="button">Grabar una toma</button>
+            <button class="button button--quiet" id="save" type="button" disabled>Guardar</button>
+            <button class="button button--quiet" id="reset" type="button">Descartar tomas</button>
+          </div>
+
+          <p class="status" id="teach-status" role="status"></p>
+
+          <h3 class="card__subtitle">Tus signos</h3>
+          <ul class="signs" id="signs"></ul>
         </div>
-
-        <p class="status" id="teach-status" role="status"></p>
-      </section>
-
-      <section class="card">
-        <h2 class="card__title">Tus signos</h2>
-        <ul class="signs" id="signs"></ul>
-      </section>
+      </details>
     `;
 
     this.button('record').addEventListener('click', () => void this.recordTake());
