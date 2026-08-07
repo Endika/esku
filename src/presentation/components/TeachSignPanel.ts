@@ -41,7 +41,7 @@ export class TeachSignPanel {
       <details class="card">
         <summary class="card__summary">
           <h2 class="card__title">Enseñar un signo</h2>
-          <span class="card__note">Cualquier signo, cualquier lengua, sólo en este dispositivo</span>
+          <span class="card__note">Cualquier signo, cualquier lengua, sólo aquí</span>
         </summary>
 
         <div class="card__content">

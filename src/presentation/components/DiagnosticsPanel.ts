@@ -51,7 +51,7 @@ export class DiagnosticsPanel {
       <details class="card">
         <summary class="card__summary">
           <h2 class="card__title">Diagnóstico</h2>
-          <span class="card__note">Por qué no aparece una palabra. No hace falta para usar la app</span>
+          <span class="card__note">Por qué no aparece una palabra</span>
         </summary>
         <dl class="diagnostics card__content" id="diag-body"></dl>
       </details>

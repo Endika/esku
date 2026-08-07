@@ -72,7 +72,7 @@ export function renderApp(root: HTMLElement): void {
       <div class="actions actions--bar" id="actions">
         <button class="button button--grow" id="toggle" type="button">Empezar a leer</button>
         <div class="actions__edit" id="edit" hidden>
-          <button class="button button--quiet" id="undo" type="button">Borrar último</button>
+          <button class="button button--quiet" id="undo" type="button">Deshacer</button>
           <button class="button button--quiet" id="clear" type="button">Limpiar</button>
         </div>
       </div>
@@ -90,9 +90,7 @@ export function renderApp(root: HTMLElement): void {
     <details class="card">
       <summary class="card__summary">
         <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
-        <span class="card__note">
-          238 signos LSE y el alfabeto — acierta el signo exacto en torno a 2 de cada 3 veces
-        </span>
+        <span class="card__note">238 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
       </summary>
 
       <div class="card__content">

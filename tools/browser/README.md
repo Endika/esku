@@ -79,6 +79,23 @@ Pass `--base /esku/` and verify content, not status.
 | `PLAYBACK` | `1` | clip speed. Below 1 the signer is genuinely slower — it no longer compensates for a slow pipeline, because the thresholds are in time now |
 | `GL` | swiftshader | `auto` lets Chrome pick. Measured: no faster here, WebGL falls back to software regardless |
 
+## The other script: `layout.mjs`
+
+Same browser, no corpus and no camera — it measures the built page at 390×844 and 320×640 and
+prints page height, horizontal overflow, the height of the action bar and the buttons actually
+visible. It serves `dist/` itself, so the `vite preview` trap above does not apply:
+
+```bash
+cd ../..
+npm run build
+node tools/browser/layout.mjs
+```
+
+It exists because the page had grown to 3.1 screens with ten buttons on it and every review
+read fine — jsdom computes no heights, so nothing in `npm test` could see it. Two readings it
+takes are forced rather than reached (`is-running` and a filled transcript): both need a camera
+and a recognised sign, and what is being measured is the layout they produce.
+
 ## What it asserts, and what it only measures
 
 It **asserts** what must hold on any device, and exits non-zero:
