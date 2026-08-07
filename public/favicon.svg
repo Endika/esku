@@ -10,23 +10,27 @@
   <rect width="512" height="512" rx="112" fill="url(#esku-bg)"/>
 
   <!--
-    A hand read as a waveform, because the hand is the voice, over two lines of text: what
-    comes out the other side.
+    A still open palm is a handshape, not a sign; what makes it a sign is the movement. Hence the
+    trail: it buys the whole difference for one extra shape, which is all a 16 px tile affords.
 
-    Three fingers rather than four, and every bar half again as wide. At 32 px this artwork
-    gets about ten usable pixels across: four 54-wide fingers with 20-wide gaps collapsed
-    into one smear, and the 28-tall text lines disappeared outright. Fewer, fatter shapes
-    survive the size the icon is actually seen at.
+    The hand itself is anatomical rather than legible-at-any-cost: four fingers on a knuckle arc,
+    each its own length, splayed so the gaps open towards the tips, and a palm drawn as one curve
+    that widens at the knuckles and narrows to the heel. The thumb runs 50 units past its pivot so
+    it stays buried in the palm — any deeper and its cap breaks back out through the heel.
+
+    Everything sits inside 113..400 x 132..406, well within the Android maskable safe zone (51..461).
   -->
   <g fill="#FFFFFF">
-    <rect x="176" y="120" width="68" height="210" rx="34"/>
-    <rect x="260" y="84" width="68" height="246" rx="34"/>
-    <rect x="344" y="136" width="68" height="194" rx="34"/>
+    <path d="M128 147 C78 207 76 313 126 381" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+    <path d="M194 187 C162 231 161 305 192 347" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round" opacity="0.45"/>
 
-    <!-- Thumb, angled off the palm so the silhouette reads as a hand and not a bar chart. -->
-    <rect x="92" y="192" width="64" height="152" rx="32" transform="rotate(-34 124 268)"/>
-
-    <rect x="176" y="368" width="236" height="40" rx="20"/>
-    <rect x="176" y="424" width="140" height="40" rx="20" fill-opacity="0.6"/>
+    <g transform="translate(270 255) rotate(-6) scale(0.8) translate(-230 -258.5)">
+      <path d="M162 276 C226 264 296 270 352 284 C376 290 380 326 368 360 C354 402 314 430 264 430 C222 432 186 420 172 396 C160 374 150 336 154 306 C157 288 156 278 162 276 Z"/>
+      <rect x="154" y="112" width="48" height="190" rx="24" transform="rotate(-8 178 262)"/>
+      <rect x="205" y="84" width="50" height="210" rx="25" transform="rotate(-2 230 254)"/>
+      <rect x="258" y="102" width="48" height="196" rx="24" transform="rotate(6 282 258)"/>
+      <rect x="309" y="150" width="42" height="164" rx="21" transform="rotate(15 330 274)"/>
+      <rect x="167" y="254" width="54" height="158" rx="27" transform="rotate(-55 194 362)"/>
+    </g>
   </g>
 </svg>
