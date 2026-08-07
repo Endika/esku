@@ -312,6 +312,8 @@ details[open] > .card__summary::after {
 
 .actions--bar {
   margin-top: 0;
+  /* The first collapsed card sits right under it, and without this they read as one block. */
+  margin-bottom: var(--gap);
 }
 
 /*

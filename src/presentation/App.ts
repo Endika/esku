@@ -89,7 +89,7 @@ export function renderApp(root: HTMLElement): void {
     -->
     <details class="card">
       <summary class="card__summary">
-        <h2 class="card__title">Qué reconoce, y con qué fiabilidad</h2>
+        <h2 class="card__title">Qué reconoce</h2>
         <span class="card__note">238 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
       </summary>
 
