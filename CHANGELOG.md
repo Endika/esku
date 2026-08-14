@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.1](https://github.com/Endika/esku/compare/v1.13.0...v1.13.1) (2026-08-14)
+
+
+### Documentation
+
+* stop crediting the face block with a gain that was one lucky seed ([978c4b4](https://github.com/Endika/esku/commit/978c4b49f42b26b466233e15788fcd2c746cc9d0))
+
 ## [1.13.0](https://github.com/Endika/esku/compare/v1.12.0...v1.13.0) (2026-08-14)
 
 
