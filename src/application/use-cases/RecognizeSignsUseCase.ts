@@ -291,6 +291,7 @@ export class RecognizeSignsUseCase {
       wordsEmitted: this.wordsEmitted,
       lettersEmitted: this.lettersEmitted,
       lastSignature: this.lastSignature,
+      frameCost: this.source.frameCost?.() ?? null,
     };
   }
 
