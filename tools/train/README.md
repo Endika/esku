@@ -56,6 +56,46 @@ scored 0.739 isolated and **0.146** continuous. Everything the project measured 
 isolated signs, and the app is used on fluent signing. Note it splices isolated recordings
 and so cannot reproduce real co-articulation — read it as an upper bound.
 
+### One seed is not a measurement
+
+`experiment.py` compares feature variants on the same split, same budget, and — until
+2026-08-14 — the same single seed. Sweeping seeds 7/13/29/41 over the same variants shows the
+between-seed spread is as large as the gains the project had been crediting:
+
+| variant | mean top-1 | sd | min | max |
+| --- | --- | --- | --- | --- |
+| pose + 16 frames, no face | 0.722 | 0.011 | 0.706 | 0.731 |
+| + face expression, every frame | 0.716 | 0.024 | 0.694 | 0.741 |
+| + face expression, held ≤300 ms | 0.714 | 0.008 | 0.704 | 0.724 |
+| no torso scalars | 0.713 | 0.011 | 0.701 | 0.726 |
+
+**The face block's `+1.2` was the max of four seeds.** Its mean is *below* no-face at all, and
+which side wins flips with the seed. The torso block behaves differently: +0.9 on average and
+the same sign in three seeds of four, which reproduces the `+1.0` originally credited to it.
+Neither reaches significance at n=4 — the standard error of a difference here is about 0.008 —
+but small-and-consistent and zero-and-erratic are not the same finding.
+
+What decides those two is not the significance, it is the cost. The torso scalars are derived
+from pose landmarks the pipeline must have anyway, since hand coordinates are torso-relative;
+they cost five subtractions. The face block costs a whole `FaceLandmarker` pass per frame, and
+frame rate is what decides whether the app writes anything at all.
+
+**This is not a reason to delete the face block.** SWL-LSE is a dictionary: isolated signs in
+citation form, so there is no negation, interrogative or topicalisation for non-manual features
+to mark, and the mouthings that distinguish manually identical signs never occur. What is
+measured is that these six scalars buy nothing *on this corpus for this task*. The richer
+`face points (21 located)` variant also measured worse, which reads as too little data to learn
+the face at all rather than as a verdict on the face.
+
+Two flags exist for this. `face_hold_ms` simulates running the face model less often and
+holding the last reading — asked for in **milliseconds**, not frames, because the corpus is
+20.00 fps and the app is nowhere near it, so "every third frame" means 150 ms here and ~600 ms
+on a phone. And `use_torso` is separate from `use_pose` on purpose: turning off `use_pose`
+would also drop the pose-relative hand location, which is the one large gain (+5.7), so
+measuring the torso through it would answer a different question.
+
+Rule of thumb from this: on this corpus, do not accept a gain under two points from one seed.
+
 ### Checking against a second corpus
 
 `check_calse.py <videos> [per-signer]` runs the segmenter over an unrelated LSE corpus of

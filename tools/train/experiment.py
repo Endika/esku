@@ -26,6 +26,19 @@ BATCH = 64
 PATIENCE = 15
 SEED = 7
 
+# SWL-LSE is 20.00 fps in every reference video. Face staleness is asked for in milliseconds,
+# not frames, because the app's frame rate is nothing like the corpus's: holding a reading for
+# two frames is 100 ms here and ~400 ms on a phone reaching 5 fps.
+CORPUS_FPS = 20.0
+
+
+def stale_face_index(index: int, hold_ms: float) -> int:
+    """Which frame's face reading a pipeline running the face model less often would still hold."""
+    if hold_ms <= 0:
+        return index
+    step = round(hold_ms / 1000 * CORPUS_FPS) + 1
+    return (index // step) * step
+
 
 def load_raw(split: str):
     bundle = np.load(DATA / f"{split}_raw.npz", allow_pickle=True)
@@ -111,7 +124,7 @@ def drop_depth(block: np.ndarray) -> np.ndarray:
 
 def signature(
     sample, frames: int, use_pose: bool, deltas: bool, face_mode: str = "none",
-    use_depth: bool = True,
+    use_depth: bool = True, face_hold_ms: float = 0.0, use_torso: bool = True,
 ) -> np.ndarray:
     right, left, pose, face = sample
     length = len(right)
@@ -124,11 +137,13 @@ def signature(
         p = pose[index] if use_pose else None
         parts = [hand_block(right[index], "right", p), hand_block(left[index], "left", p)]
 
-        if use_pose:
+        # Separate from use_pose on purpose: dropping that would also drop the
+        # pose-relative hand location, which is the one large measured gain (+5.7)
+        if use_pose and use_torso:
             parts.append(torso_block(pose[index]))
 
         if face_mode != "none" and face is not None:
-            points = face[index]
+            points = face[stale_face_index(index, face_hold_ms)]
             if face_mode == "expression":
                 parts.append(expression(points))
             elif face_mode == "points":
@@ -149,7 +164,9 @@ def signature(
         # MediaPipe's z is inferred from one camera rather than measured, so it is the
         # noisiest channel by far. Whether it earns its place is a question for the test set,
         # not for intuition.
-        stacked = np.stack([drop_depth_row(r, use_pose, face_mode) for r in stacked])
+        stacked = np.stack(
+            [drop_depth_row(r, use_pose and use_torso, face_mode) for r in stacked]
+        )
 
     if deltas:
         # Frame-to-frame change, so the model is handed motion instead of inferring it.
@@ -187,10 +204,16 @@ def drop_depth_row(row: np.ndarray, use_pose: bool, face_mode: str) -> np.ndarra
 
 
 def build(
-    samples, frames: int, use_pose: bool, deltas: bool, face_mode: str, use_depth: bool
+    samples, frames: int, use_pose: bool, deltas: bool, face_mode: str, use_depth: bool,
+    face_hold_ms: float = 0.0, use_torso: bool = True,
 ) -> np.ndarray:
     return np.stack(
-        [signature(s, frames, use_pose, deltas, face_mode, use_depth) for s in samples]
+        [
+            signature(
+                s, frames, use_pose, deltas, face_mode, use_depth, face_hold_ms, use_torso
+            )
+            for s in samples
+        ]
     )
 
 
@@ -223,15 +246,17 @@ class SignHead(nn.Module):
 
 
 def run(name: str, frames: int, use_pose: bool, deltas: bool, strength: float,
-        face_mode: str, cache: dict, use_depth: bool = True):
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
+        face_mode: str, cache: dict, use_depth: bool = True, face_hold_ms: float = 0.0,
+        seed: int = SEED, use_torso: bool = True):
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
-    key = (frames, use_pose, deltas, face_mode, use_depth)
+    key = (frames, use_pose, deltas, face_mode, use_depth, face_hold_ms, use_torso)
     if key not in cache:
         cache[key] = {
             split: build(
-                cache["samples"][split], frames, use_pose, deltas, face_mode, use_depth
+                cache["samples"][split], frames, use_pose, deltas, face_mode, use_depth,
+                face_hold_ms, use_torso,
             )
             for split in ("train", "val", "test")
         }
@@ -291,21 +316,33 @@ def main() -> None:
         cache["samples"][split] = samples
         cache["labels"][split] = labels
 
-    # Round two. Deltas are gone: round one measured them at -5.3 top-1, so every variant
-    # here builds on pose + 16 frames instead.
-    # Round two. Deltas are gone: round one measured them at -5.3 top-1, so every variant
-    # here builds on pose + 16 frames instead.
+    # Round three. The face expression block costs a whole FaceLandmarker pass per frame for
+    # 6 of the 149 floats in a frame, and frame rate is what decides whether the app writes
+    # anything at all. So: how stale may that reading be before its +1.2 top-1 is gone?
+    #
+    # Over several seeds, because the gaps being read are ~1 point on 598 test samples, which
+    # is the same size as the effect one seed change can invent.
+    # Round four. The torso block's measured +1.0 sits inside the between-seed sd of 0.024
+    # that round three found, so it gets the same treatment. Both variants keep the
+    # pose-relative hand location: only the five torso scalars move.
     variants = [
-        ("pose + 16 frames (best so far)", 16, True, False, 0.0, "none", True),
-        ("  ... without depth (z)", 16, True, False, 0.0, "none", False),
-        ("+ augmentation, no deltas", 16, True, False, 0.15, "none", True),
-        ("+ face expression (6 scalars)", 16, True, False, 0.0, "expression", True),
-        ("+ face points (21 located)", 16, True, False, 0.0, "points", True),
-        ("+ face points and expression", 16, True, False, 0.0, "both", True),
-        ("+ face both + augmentation", 16, True, False, 0.15, "both", True),
+        ("with torso (shipped)", True),
+        ("without torso", False),
     ]
-    for name, frames, pose, deltas, strength, face_mode, depth in variants:
-        run(name, frames, pose, deltas, strength, face_mode, cache, depth)
+    seeds = [7, 13, 29, 41]
+    results: dict[str, list[float]] = {name: [] for name, _ in variants}
+
+    for seed in seeds:
+        for name, use_torso in variants:
+            t1, _ = run(f"{name} [seed {seed}]", 16, True, False, 0.0, "none", cache,
+                        True, 0.0, seed, use_torso)
+            results[name].append(t1)
+
+    print()
+    for name, _ in variants:
+        got = np.array(results[name])
+        print(f"{name:26} mean {got.mean():.3f}  sd {got.std(ddof=1):.3f}  "
+              f"min {got.min():.3f}  max {got.max():.3f}  n={len(got)}")
 
 
 if __name__ == "__main__":
