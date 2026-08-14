@@ -1,3 +1,4 @@
+import type { FrameCost } from '../value-objects/FrameCost';
 import type { LandmarkFrame } from '../value-objects/LandmarkFrame';
 
 export type LandmarkListener = (frame: LandmarkFrame) => void;
@@ -11,6 +12,8 @@ export interface ILandmarkSource {
   start(listener: LandmarkListener): Promise<void>;
   stop(): void;
   isRunning(): boolean;
+  /** Optional: only a source with real models has a per-model cost to report. */
+  frameCost?(): FrameCost | null;
 }
 
 export class CameraUnavailableError extends Error {

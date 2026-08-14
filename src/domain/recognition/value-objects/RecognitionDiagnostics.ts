@@ -1,3 +1,5 @@
+import type { FrameCost } from '@domain/landmarks/value-objects/FrameCost';
+
 /**
  * What the pipeline actually did, so a silent app can be told apart from a wrong one.
  *
@@ -65,6 +67,8 @@ export interface RecognitionDiagnostics {
   readonly lettersEmitted: number;
   /** What the model was actually fed for the last window. Null until one is classified. */
   readonly lastSignature: SignatureProfile | null;
+  /** Per-model cost of a frame. Null until the camera has produced one. */
+  readonly frameCost: FrameCost | null;
 }
 
 export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
@@ -82,4 +86,5 @@ export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
   wordsEmitted: 0,
   lettersEmitted: 0,
   lastSignature: null,
+  frameCost: null,
 };

@@ -3,6 +3,7 @@ import {
   type ILandmarkSource,
   type LandmarkListener,
 } from '@domain/landmarks/services/ILandmarkSource';
+import { type FrameCost, FrameCostMeter } from '@domain/landmarks/value-objects/FrameCost';
 import {
   createHandLandmarks,
   type Handedness,
@@ -44,6 +45,7 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
   private running = false;
   private facing: CameraFacing = 'user';
   private listener: LandmarkListener | null = null;
+  private readonly cost = new FrameCostMeter();
 
   constructor(
     private readonly video: HTMLVideoElement,
@@ -52,6 +54,10 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
 
   isRunning(): boolean {
     return this.running;
+  }
+
+  frameCost(): FrameCost | null {
+    return this.cost.read();
   }
 
   get camera(): CameraFacing {
@@ -139,8 +145,14 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
         this.lastVideoTime = this.video.currentTime;
         const timestampMs = performance.now();
         const result = this.landmarker.detectForVideo(this.video, timestampMs);
+        const afterHands = performance.now();
         const pose = this.pose?.detectForVideo(this.video, timestampMs);
+        const afterPose = performance.now();
         const face = this.face?.detectForVideo(this.video, timestampMs);
+        const afterFace = performance.now();
+
+        // VIDEO mode returns the result, so the call has waited for its own GPU work
+        this.cost.record(afterHands - timestampMs, afterPose - afterHands, afterFace - afterPose);
 
         listener({
           timestampMs,
@@ -160,6 +172,8 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     this.lastVideoTime = -1;
+    // Front and rear cameras do not cost the same, and useCamera() switches through here
+    this.cost.reset();
 
     // Releasing the tracks is what turns the camera indicator off. Leaving them live would
     // keep recording in the background, which this app must never appear to do.

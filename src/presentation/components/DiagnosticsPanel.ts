@@ -1,3 +1,4 @@
+import type { FrameCost } from '@domain/landmarks/value-objects/FrameCost';
 import {
   EMPTY_DIAGNOSTICS,
   type RecognitionDiagnostics,
@@ -25,6 +26,16 @@ const VETO_LABELS: Record<WindowVeto, string> = {
   stabilizer: 'el estabilizador: el modelo respondió pero se quedó corto',
   duplicate: 'repetido: mismo signo que el anterior',
 };
+
+function frameCostLabel(cost: FrameCost | null): string {
+  if (!cost) return '—';
+  const total = cost.handsMs + cost.poseMs + cost.faceMs;
+  const share = (ms: number) => `${ms.toFixed(0)} ms`;
+  return (
+    `${share(total)} · manos ${share(cost.handsMs)} · pose ${share(cost.poseMs)}` +
+    ` · cara ${share(cost.faceMs)}`
+  );
+}
 
 /**
  * Shows what the pipeline did, so "it writes nothing" becomes a specific failure.
@@ -78,6 +89,7 @@ export class DiagnosticsPanel {
     // closing windows at all, is the engine being asked, and what did it actually score.
     const rows: [string, string][] = [
       ['Fotogramas', `${d.framesSeen} (${d.framesWithHands} con mano)`],
+      ['Coste por fotograma', frameCostLabel(d.frameCost)],
       ['Segmentador', d.segmenterActive ? `activo, ${d.pendingFrames} fotogramas` : 'en reposo'],
       ['Ventanas cerradas', `${d.windowsClosed} (${d.windowsTooShort} descartadas por cortas)`],
       ['Última ventana', d.lastWindowFrames ? `${d.lastWindowFrames} fotogramas` : '—'],
