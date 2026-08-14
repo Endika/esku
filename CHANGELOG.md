@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.0](https://github.com/Endika/esku/compare/v1.12.0...v1.13.0) (2026-08-14)
+
+
+### Features
+
+* measure what each vision model costs per frame ([#59](https://github.com/Endika/esku/issues/59)) ([535a736](https://github.com/Endika/esku/commit/535a7365981434ed13012fe0636f52922aeb95b7))
+
 ## [1.12.0](https://github.com/Endika/esku/compare/v1.11.0...v1.12.0) (2026-08-07)
 
 
