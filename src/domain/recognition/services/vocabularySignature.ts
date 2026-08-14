@@ -16,10 +16,13 @@ import type {
  * used to be one function, and every improvement to this model invalidated every sign the
  * user had recorded. They ship on different clocks, so they get different code.
  *
- * Each element earned its place on the held-out test split: hand position relative to the
- * torso (+5.7 top-1), sixteen frames instead of eight (+3.0), torso and head orientation
- * (+1.0), facial expression (+1.2). Motion deltas, raw face coordinates and input
- * augmentation were all measured and all made it worse.
+ * Measured on the held-out test split: hand position relative to the torso (+5.7 top-1),
+ * sixteen frames instead of eight (+3.0), torso and head orientation (+0.9 over four seeds).
+ * Facial expression is the exception — its published +1.2 was the best of four seeds and its
+ * mean is below dropping it, so those six floats have not earned their place. They stay
+ * because this corpus is a dictionary of isolated signs and cannot show what the face is for.
+ * Motion deltas, raw face coordinates and input augmentation were all measured and all made it
+ * worse. `tools/train/README.md` has the seed sweep.
  */
 export const VOCABULARY_FRAMES = 16;
 
