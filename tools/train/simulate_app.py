@@ -69,12 +69,20 @@ def dominant(right: np.ndarray, left: np.ndarray, index: int) -> np.ndarray:
     return r if np.ptp(r[:, 0]) * np.ptp(r[:, 1]) >= np.ptp(l[:, 0]) * np.ptp(l[:, 1]) else l
 
 
-def span_ms(window: list[int]) -> float:
-    """Wall-clock span of a window, from frame indices at the dataset's rate."""
-    return (window[-1] - window[0]) * FRAME_MS if len(window) > 1 else 0.0
+def span_ms(window: list[int], frame_ms: float = FRAME_MS) -> float:
+    """Wall-clock span of a window, from frame indices at the *recording's* rate.
+
+    The rate belongs to whatever was recorded, not to this module. SWL-LSE is 20 fps so that
+    is the default, but a 25 fps corpus fed through the 20 fps default reads every span 25%
+    long, which moves `MIN_SIGN_MS` and `MAX_MS` earlier in real time and inflates the window
+    count. Pass the real rate.
+    """
+    return (window[-1] - window[0]) * frame_ms if len(window) > 1 else 0.0
 
 
-def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]]:
+def windows(
+    right: np.ndarray, left: np.ndarray | None = None, fps: float = DATASET_FPS
+) -> list[list[int]]:
     """Every window the app would emit over a stream. Port of `SignSegmenter.push`.
 
     Closes where the signer decelerates off this window's peak speed, not where they hold
@@ -86,6 +94,7 @@ def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]
     """
     if left is None:
         left = np.zeros_like(right)
+    frame_ms = 1000.0 / fps
     out: list[list[int]] = []
     window: list[int] = []
     peak = 0.0
@@ -94,14 +103,14 @@ def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]
 
     def close() -> None:
         nonlocal window, peak, slow_ms, active
-        if span_ms(window) >= MIN_MS and len(window) >= MIN_FRAMES:
+        if span_ms(window, frame_ms) >= MIN_MS and len(window) >= MIN_FRAMES:
             out.append(window)
         window, peak, slow_ms, active = [], 0.0, 0.0, False
 
     for index in range(len(right)):
         rate = (
             motion_between(dominant(right, left, index), dominant(right, left, window[-1]))
-            / (FRAME_MS / 1000.0)
+            / (frame_ms / 1000.0)
             if window
             else 0.0
         )
@@ -112,22 +121,24 @@ def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]
             peak = max(peak, rate)
 
         if not active:
-            while len(window) > 1 and span_ms(window) > MIN_MS:
+            while len(window) > 1 and span_ms(window, frame_ms) > MIN_MS:
                 window.pop(0)
             continue
 
-        if span_ms(window) >= MAX_MS:
+        if span_ms(window, frame_ms) >= MAX_MS:
             close()
             continue
 
         decelerating = (
-            span_ms(window) >= MIN_SIGN_MS and peak > 0 and rate < peak * DECELERATION_DROP
+            span_ms(window, frame_ms) >= MIN_SIGN_MS
+            and peak > 0
+            and rate < peak * DECELERATION_DROP
         )
         if not decelerating:
             slow_ms = 0.0
             continue
 
-        slow_ms += FRAME_MS
+        slow_ms += frame_ms
         if slow_ms >= DECELERATION_HOLD_MS:
             close()
 
@@ -137,9 +148,11 @@ def windows(right: np.ndarray, left: np.ndarray | None = None) -> list[list[int]
     return out
 
 
-def segment(right: np.ndarray, left: np.ndarray | None = None) -> list[int] | None:
+def segment(
+    right: np.ndarray, left: np.ndarray | None = None, fps: float = DATASET_FPS
+) -> list[int] | None:
     """The first window only — what a one-sign recording yields."""
-    found = windows(right, left)
+    found = windows(right, left, fps)
     return found[0] if found else None
 
 
