@@ -202,6 +202,9 @@ def ship(seed: int) -> None:
     print(f"SWL-LSE test (signos aislados): top1 {top1:.4f}  top3 {top3:.4f}")
     export_weights(model, classes, top1, top3, source=SHIPPED_SOURCE)
     export_reference_vector(model)
+    # The parity fixture is written as one long line and Biome wraps number arrays, so CI's lint
+    # step fails on it otherwise. Cheaper to say so here than to reimplement Biome's wrapping.
+    print("recuerda: npm run lint:fix, que Biome reformatea el fixture de paridad")
 
 
 def main() -> None:
