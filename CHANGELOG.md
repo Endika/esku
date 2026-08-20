@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.14.0](https://github.com/Endika/esku/compare/v1.13.1...v1.14.0) (2026-08-20)
+
+
+### Features
+
+* recognise continuous signing, by training on co-articulated signs ([0749876](https://github.com/Endika/esku/commit/074987631115796e86b5209f145737f0b50fe6b5))
+
+
+### Bug Fixes
+
+* format the parity fixture, which Biome wraps and the exporter does not ([9656532](https://github.com/Endika/esku/commit/96565324ba6224c14148111c11305bc1efb6027a))
+
+
+### Documentation
+
+* document the LSE-Health benchmarks and what not to rediscover ([908462d](https://github.com/Endika/esku/commit/908462dbed0e9b3fac7d70c94003bbeddfb71530))
+* license the weights apart from the code, since one corpus is non-commercial ([e7d0be9](https://github.com/Endika/esku/commit/e7d0be992f7e1c6be49ff6ba0a127b7ed3afaa4d))
+* state the scope of the continuous figure, which does not extrapolate ([7841f3d](https://github.com/Endika/esku/commit/7841f3dac65e1ebfbeb93b21fed0c6585c6b0efd))
+
 ## [1.13.1](https://github.com/Endika/esku/compare/v1.13.0...v1.13.1) (2026-08-14)
 
 
