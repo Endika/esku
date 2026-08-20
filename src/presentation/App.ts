@@ -90,15 +90,21 @@ export function renderApp(root: HTMLElement): void {
     <details class="card">
       <summary class="card__summary">
         <h2 class="card__title">Qué reconoce</h2>
-        <span class="card__note">238 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
+        <span class="card__note">287 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
       </summary>
 
       <div class="card__content">
         <p class="card__body">
-          <strong>Vocabulario LSE:</strong> 238 signos de ámbito sanitario, entrenados sobre
-          SWL-LSE. Acierta el signo exacto en torno a <strong>2 de cada 3 veces</strong>, y está
-          entre sus tres primeras opciones en <strong>8 de cada 10</strong>. Es un modelo real,
-          no infalible: revisa el texto antes de darlo por bueno.
+          <strong>Vocabulario LSE:</strong> 287 signos de ámbito sanitario, entrenados sobre
+          SWL-LSE y LSE-Health. Signo a signo y sin prisa, acierta el signo exacto en torno a
+          <strong>2 de cada 3 veces</strong>, y está entre sus tres primeras opciones en
+          <strong>8 de cada 10</strong>.
+        </p>
+        <p class="card__body" style="margin-top: 10px">
+          <strong>Signando de corrido cae mucho:</strong> escribe la palabra correcta en torno a
+          <strong>1 de cada 3</strong> signos. Un signo pegado al siguiente es más difícil que un
+          signo suelto, y eso no está resuelto en ningún idioma todavía. Es un modelo real, no
+          infalible: revisa el texto antes de darlo por bueno.
         </p>
         <p class="card__body" style="margin-top: 10px">
           <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
@@ -110,7 +116,10 @@ export function renderApp(root: HTMLElement): void {
 
     <p class="footnote">
       v${__APP_VERSION__} · Vocabulario LSE sobre
-      <a href="https://zenodo.org/records/13691887" rel="noreferrer">SWL-LSE</a> (CC-BY-4.0)
+      <a href="https://zenodo.org/records/13691887" rel="noreferrer">SWL-LSE</a> (CC-BY-4.0) y
+      <a href="https://zenodo.org/records/10234465" rel="noreferrer">LSE-Health-UVigo</a>
+      (CC-BY-NC-4.0) · el vídeo no sale de tu dispositivo:
+      <a href="https://github.com/Endika/esku/blob/main/PRIVACY.md" rel="noreferrer">privacidad</a>
     </p>
   `;
 
