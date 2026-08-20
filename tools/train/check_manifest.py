@@ -16,11 +16,13 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
 MODELS = Path(__file__).resolve().parents[2] / "public" / "models"
 FIXTURE = Path(__file__).resolve().parents[2] / "src" / "test" / "fixtures" / "model-parity.json"
+COPY = Path(__file__).resolve().parents[2] / "src" / "presentation" / "App.ts"
 MANIFEST = MODELS / "lse-vocabulary.json"
 WEIGHTS = MODELS / "lse-vocabulary.bin"
 FLOAT_BYTES = 4
@@ -77,6 +79,20 @@ def failures() -> list[str]:
             )
     else:
         problems.append(f"falta {FIXTURE}")
+
+    # The About panel states the vocabulary size in prose, and it is rendered before the manifest
+    # loads, so it cannot read the real number. Shipping 287 concepts left it saying 238 — wrong
+    # on the screen people actually read. Cheaper to fail here than to notice months later.
+    copy = COPY.read_text() if COPY.is_file() else ""
+    claimed = {int(n) for n in re.findall(r"\b(\d{2,4}) signos\b", copy)}
+    expected = len(manifest["concepts"])
+    wrong = sorted(n for n in claimed if n != expected)
+    if wrong:
+        problems.append(
+            f"{COPY.name} dice {wrong} signos y el modelo tiene {expected}"
+        )
+    elif not claimed:
+        problems.append(f"no encuentro la cifra de signos en {COPY.name}; revisa el patron")
 
     return problems
 

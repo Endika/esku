@@ -163,6 +163,14 @@ Neither is precached by the service worker. Together they are ~29 MB, and precac
 put that download in front of the first paint; they are cached on first use instead, after
 which the app is fully offline.
 
+## Privacy
+
+Everything runs on the device. The camera feed is never recorded, uploaded, or sent anywhere —
+there is no server to send it to. No cookies, no analytics, no identifiers, and so no consent
+banner. Taught signs live in the browser's own storage and are deletable from the app.
+
+Full notice, in Spanish, as the app's users read it: [`PRIVACY.md`](PRIVACY.md).
+
 ## Licence
 
 **MIT for the code. The vocabulary model is not** — it is trained partly on LSE-Health-UVigo,
