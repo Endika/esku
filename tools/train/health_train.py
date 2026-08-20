@@ -163,17 +163,69 @@ def shipped_model(concepts: list[str]) -> SignHead:
     return model
 
 
+SHIPPED_SOURCE = (
+    "SWL-LSE (CC-BY-4.0), doi:10.5281/zenodo.13691887 + "
+    "LSE-Health-UVigo (CC-BY-NC-4.0), doi:10.5281/zenodo.10234465"
+)
+
+
+def ship(seed: int) -> None:
+    """Write one trained variant into `public/models` in the browser's own format.
+
+    `testTop1` keeps meaning what the field has always meant — accuracy on SWL-LSE's own
+    held-out split of isolated signs — so it stays comparable with every release before this one.
+    It is *not* what the app does on continuous signing, which is far lower and belongs in the
+    README, where people actually read it.
+
+    Which seed ships is decided on the validation signer, never on the test signers. Picking the
+    seed that scored best on the held-out set would be selecting on the exam.
+    """
+    from train import export_reference_vector, export_weights
+
+    classes = json.loads((UVIGO / "concepts_B.json").read_text())
+    state = UVIGO / f"model_B_s{seed}.pt"
+    if not state.is_file():
+        raise SystemExit(f"no existe {state}; entrena con --export primero")
+    model = SignHead(len(classes))
+    model.load_state_dict(torch.load(state, weights_only=True))
+    model.eval()
+
+    x, y_raw, _, _ = signatures(DATA / "test_raw.npz")
+    index = {c: i for i, c in enumerate(classes)}
+    keep = [i for i, v in enumerate(y_raw) if normalize(v) in index]
+    top1, top3 = accuracy(
+        model,
+        torch.tensor(x[keep]),
+        torch.tensor([index[normalize(y_raw[i])] for i in keep], dtype=torch.long),
+    )
+    print(f"semilla {seed}, {len(classes)} clases")
+    print(f"SWL-LSE test (signos aislados): top1 {top1:.4f}  top3 {top3:.4f}")
+    export_weights(model, classes, top1, top3, source=SHIPPED_SOURCE)
+    export_reference_vector(model)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--variants", default="A,B", help="A y/o B, separadas por comas")
     parser.add_argument("--seeds", default=",".join(str(s) for s in SEEDS))
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument(
+        "--ship",
+        type=int,
+        metavar="SEMILLA",
+        help="publicar los pesos de esa semilla de B en public/models y salir. "
+        "La semilla se elige por validacion, nunca por su nota en test",
+    )
+    parser.add_argument(
         "--export",
         action="store_true",
         help="guardar pesos y lista de clases por variante y semilla, para health_words.py",
     )
     arguments = parser.parse_args()
+
+    if arguments.ship is not None:
+        ship(arguments.ship)
+        return
 
     split = json.loads((UVIGO / "split.json").read_text())
     with (UVIGO / "videos.csv").open() as handle:
