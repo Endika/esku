@@ -1,7 +1,8 @@
 # Notices and attributions
 
 Esku's own source code is MIT (see `LICENSE`). The recognition models are trained on
-third-party data with its own terms, listed here.
+third-party data with its own terms, listed here — and since 1.14 **the vocabulary model is no
+longer MIT**: see `public/models/LICENSE.md`.
 
 ## SWL-LSE — SignaMed Word-Level LSE
 
@@ -22,6 +23,34 @@ attribution, and it is also surfaced in the app's "Acerca de" screen.
 No dataset video or landmark file is redistributed in this repository — only weights
 derived from it.
 
+## LSE-Health-UVigo
+
+The vocabulary model is also trained on **LSE-Health-UVigo**: 273 videos, 10.8 hours of
+continuous health-domain discourse from ten signers (seven Deaf, three interpreters), with
+15,098 hand-annotated gloss occurrences carrying start and end times. Those annotations are
+what let the model see co-articulated signing at all — trained on SWL-LSE alone it wrote the
+right word for 0.8% of signs in continuous use.
+
+- Dataset: <https://zenodo.org/records/10234465> (DOI `10.5281/zenodo.10234465`)
+- Licence: **Creative Commons Attribution-NonCommercial 4.0 International (CC-BY-NC-4.0)**,
+  as declared on Zenodo. The group's own reply placed it under CC-BY-4.0; until that is
+  settled we assume the stricter reading, which is why `public/models/LICENSE.md` exists.
+- Authors: Alba-Castro, Jose L.; Vázquez-Enríquez, Manuel; Pérez-Pérez, Ania; Mariño-Pérez,
+  Flora; Lema-Álvarez, Manuel L.; Cabeza-Pereiro, Carmen; Rodríguez-Banga, Eduardo;
+  Docío-Fernández, Laura; Torres-Guijarro, Soledad; Caderno-Fernández, Alba; Cid-Álvarez, Sol
+- Paper: Vázquez Enríquez, M.; Alba Castro, J. L.; Docío Fernández, L.; Jacques Junior, J. C. S.;
+  Escalera, S. *ECCV 2022 Sign Spotting Challenge: Dataset, Design and Results*. Lecture Notes
+  in Computer Science 13808.
+- The videos originate from the Servizo Galego de Saúde YouTube channel under a permissive
+  licence; the corpus's own value is the annotation.
+
+**Because CC-BY-NC forbids commercial use, the weights cannot be MIT.** The code still is. A
+commercial fork has to retrain on SWL-LSE alone.
+
+As with SWL-LSE, no video and no landmark file is redistributed here. That matters more for this
+corpus: the recordings are of identifiable Deaf signers, and its sibling corpus LSE_Lex40 was
+never published because the university's data protection assessment did not clear it.
+
 ## MediaPipe Tasks (hand and pose landmarks)
 
 Landmark extraction uses Google's MediaPipe Tasks Vision bundles, vendored into
@@ -41,5 +70,10 @@ Landmark extraction uses Google's MediaPipe Tasks Vision bundles, vendored into
 but it is licensed **CC BY-NC-SA 4.0** — non-commercial and share-alike. No sign.mt code,
 weights or assets are vendored here, so Esku stays MIT-licensable.
 
-**LSE_Lex40_UVIGO** is not used: it is distributed on request via the University of Vigo
-GTM group rather than by open download, and publishes no redistribution licence.
+**LSE_Lex40_UVIGO** is not used, and cannot be: UVigo never published it, because their data
+protection officer did not find sufficient guarantees under GDPR. The group pointed us at
+LSE-Health-UVigo, LSE-FS-UVigo and LSE-METI-UVigo instead.
+
+**LSE-METI-UVigo** (<https://zenodo.org/records/20035734>) is not used yet. ~5,000 continuous
+sentences with gloss sequences and no temporal alignment, so it needs CTC-style training rather
+than this architecture. Also CC-BY-NC-4.0.
