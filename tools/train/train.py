@@ -85,7 +85,16 @@ WEIGHT_ORDER = [
 ]
 
 
-def export_weights(model: nn.Module, concepts: list[str], top1: float, top3: float) -> None:
+DEFAULT_SOURCE = "SWL-LSE (CC-BY-4.0), doi:10.5281/zenodo.13691887"
+
+
+def export_weights(
+    model: nn.Module,
+    concepts: list[str],
+    top1: float,
+    top3: float,
+    source: str = DEFAULT_SOURCE,
+) -> None:
     """Dump the weights as one flat float32 blob plus a manifest.
 
     Not ONNX, deliberately. onnxruntime-web needs 13 MB of its own WASM before it can run a
@@ -115,7 +124,7 @@ def export_weights(model: nn.Module, concepts: list[str], top1: float, top3: flo
                 "shapes": {key: list(state[key].shape) for key in WEIGHT_ORDER},
                 "testTop1": round(top1, 4),
                 "testTop3": round(top3, 4),
-                "source": "SWL-LSE (CC-BY-4.0), doi:10.5281/zenodo.13691887",
+                "source": source,
             },
             ensure_ascii=False,
             indent=2,
