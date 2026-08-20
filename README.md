@@ -34,14 +34,20 @@ Two numbers, because one of them alone would be misleading.
 **Sign by sign, at a deliberate pace: 73% top-1, 84% top-3** on 598 held-out samples of isolated
 signs — against a 0.4% random baseline over 287 classes.
 
-**Signing continuously: 33% of signs get the right word written.** Measured end to end — camera to
-transcript, confidence gate included — over 1,060 hand-annotated occurrences from ten signers of
-[LSE-Health-UVigo](https://zenodo.org/records/10234465), none of whom the model was trained on.
-Mean of four seeds, sd 2.1.
+**Signing continuously: 33% of signs get the right word written** — but read the scope before
+quoting that. Measured end to end, camera to transcript with the confidence gate included, over
+1,060 hand-annotated occurrences from four held-out signers of
+[LSE-Health-UVigo](https://zenodo.org/records/10234465). Mean of four seeds, sd 2.1.
 
-That second figure is the honest one for real use, and it is 33% rather than **0.6%**, which is
-what this app did before it was trained on co-articulated signing. The gap between the two columns
-is what a sign looks like when it is glued to the sign before it.
+The scope is narrow on purpose: **51 health-domain signs scored inside a 287-sign model**. It does
+not extrapolate. Recognising isolated signs over 300 classes, over the ~8,000 of a full LSE
+dictionary, and recognising continuous signing over a large vocabulary are three different
+problems of increasing difficulty, and this figure belongs to the easiest of the three. Nobody has
+solved blind segmentation of continuous signing.
+
+What the number does say is that the same app scored **0.6%** on the same test before it was
+trained on co-articulated signs. The gap between the two rows is what a sign looks like when it is
+glued to the sign before it.
 
 Useful, not authoritative. The UI says so, and the transcript is editable.
 
