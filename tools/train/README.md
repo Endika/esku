@@ -95,6 +95,51 @@ would also drop the pose-relative hand location, which is the one large gain (+5
 measuring the torso through it would answer a different question.
 
 Rule of thumb from this: on this corpus, do not accept a gain under two points from one seed.
+### Real co-articulation: LSE-Health-UVigo
+
+`continuous.py` had to splice recordings because nothing here held real co-articulated signing.
+LSE-Health-UVigo does: 273 videos, 10.8 hours of continuous discourse from ten signers, and
+15,098 hand-annotated gloss occurrences with start and end times. That is both the missing
+benchmark and, once cut into windows, the missing training set — so the split below exists to
+keep those two uses apart.
+
+The corpus is CC BY-NC on Zenodo (DOI `10.5281/zenodo.10234465`) while the reply that pointed us
+at it said CC BY; until that is settled, measure locally and do not publish weights derived from
+it. Nothing from it is committed: `data/` is gitignored.
+
+| script | what it answers |
+| --- | --- |
+| `health_extract.py` | caches hand, pose and face landmarks per video, once. `--mirror` is opt-in: see the handedness note below |
+| `health_bench.py` | does a window land where a sign is? IoU-matched, one-to-one, against the 15,098 boundaries |
+| `health_words.py` | does the app write the **right word**? The only number about the product. Scores by label, so a retrained model with different classes stays comparable |
+| `sweep_health.py` | sweeps `MIN_SIGN_MS`, plus `--by-duration` for recall split by how long the sign lasts |
+| `health_split.py` | freezes a signer-disjoint train/test split into `data/uvigo/split.json` |
+| `health_dataset.py` | cuts the corpus into training windows: gold boundaries, real segmenter windows, and rejects |
+| `health_train.py` | retrains on those windows and reports on held-out signers |
+
+**Handedness:** the footage is third person, not a selfie mirror, so MediaPipe's raw label is
+already anatomical and must not be inverted. Verified three ways — it agrees with Pose's
+anatomical wrist in 98.6% of detections, and inverting it sends both left-handed signers (6 and 7)
+to the wrong slot. `check_calse.py` had been inverting unconditionally and no longer does.
+
+Two findings from it worth not rediscovering:
+
+- **A minimum-duration floor makes short signs unreachable, as arithmetic.** A window forced to
+  last at least F, matched against a sign of length L, has IoU ≤ L/F, so IoU ≥ 0.5 needs
+  L ≥ F/2. With `MIN_SIGN_MS` at 1150 and a median real sign of 480 ms, **828 of 1,576 glosses
+  could never be recovered**, and recall by duration is flatly 0% below F/2 in both columns of
+  `sweep_health.py --by-duration`.
+- **Boundary recall is not a product metric.** Lowering the floor tripled it while word recall
+  stayed near zero, because 88-96% of windows never reached 0.30 confidence: the classifier had
+  only ever seen dictionary recordings. Fixing the classifier first is what makes the boundary
+  work pay — the two levers multiply.
+
+`health_dataset.py` deliberately cannot build a useful reject class from this corpus. "Overlaps no
+gloss" is not evidence of silence — only 101 sign types are annotated, about 24 glosses a minute
+against the 90-150 signs a minute of fluent discourse, so such a window is usually a real sign
+nobody labelled. The honest source is the gap between annotated *sentence* segments, and those
+cover 9.6 of the 10.8 hours, so there is almost nothing there. Teaching the model to stay quiet
+needs negatives from somewhere else.
 
 ### Checking against a second corpus
 
