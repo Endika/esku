@@ -93,22 +93,37 @@ def sample_index(slot: int, length: int) -> int:
     return int(round((slot / (FRAMES - 1)) * (length - 1)))
 
 
-def vocabulary_signature(right, left, pose, face) -> np.ndarray:
-    """Collapse one sign into the fixed-length vector the model reads."""
-    signature = np.zeros(SIGNATURE_LENGTH, dtype=np.float32)
+def frame_floats(include_face: bool = True) -> int:
+    return FRAME_FLOATS if include_face else FRAME_FLOATS - FACE_FLOATS
+
+
+def signature_length(include_face: bool = True) -> int:
+    return FRAMES * frame_floats(include_face)
+
+
+def vocabulary_signature(right, left, pose, face, include_face: bool = True) -> np.ndarray:
+    """Collapse one sign into the fixed-length vector the model reads.
+
+    `include_face=False` drops the six expression scalars, and with them the reason to run a
+    third MediaPipe model on every frame. The default is what ships, so the layout stays
+    byte-for-byte equivalent to the TypeScript unless a caller asks otherwise. Whether the block
+    earns its frame rate was only ever measured on SWL-LSE, which is citation form — no
+    interrogative, no negation, none of the non-manual marking that makes a face worth reading.
+    """
+    width = frame_floats(include_face)
+    signature = np.zeros(FRAMES * width, dtype=np.float32)
     if len(right) == 0:
         return signature
 
     for slot in range(FRAMES):
         index = sample_index(slot, len(right))
-        row = np.concatenate(
-            [
-                hand_block(right[index], "right", pose[index]),
-                hand_block(left[index], "left", pose[index]),
-                torso_block(pose[index]),
-                expression(face[index]),
-            ]
-        )
-        signature[slot * FRAME_FLOATS : (slot + 1) * FRAME_FLOATS] = row
+        blocks = [
+            hand_block(right[index], "right", pose[index]),
+            hand_block(left[index], "left", pose[index]),
+            torso_block(pose[index]),
+        ]
+        if include_face:
+            blocks.append(expression(face[index]))
+        signature[slot * width : (slot + 1) * width] = np.concatenate(blocks)
 
     return signature

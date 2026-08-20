@@ -39,6 +39,25 @@ jobs:
       - name: Build
         run: npm run build
 
+  # `tools/train` is offline tooling and never runs in CI, which is how a 287-class model got
+  # shipped against a 238-class manifest: the bench scored 0.000 in silence and every check
+  # here stayed green. This job covers the cheap half of that gap — the invariants tying the
+  # published artefacts to the code that reads them. It deliberately installs nothing: the
+  # full benches need torch, MediaPipe and a corpus that is not in the repository.
+  artifacts:
+    name: Model artefacts agree
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Manifest, weights and parity fixture
+        run: python tools/train/check_manifest.py
+
   commits:
     name: Conventional commits
     if: github.event_name == 'pull_request'

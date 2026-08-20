@@ -12,6 +12,9 @@ measure the deployed path, so if the TypeScript changes, change this too.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import numpy as np
 import torch
 
@@ -161,8 +164,17 @@ def main() -> None:
     count = int(bundle["n"][0])
 
     x_train, y_train = load("train")
-    concepts = sorted(set(np.load("data/train_raw.npz", allow_pickle=True)["y"]))
+    # The concept list comes from the *manifest*, not from SWL-LSE's own labels. The two agreed
+    # while the shipped model was trained on SWL-LSE alone; once it also learned LSE-Health's
+    # glosses they diverged, and deriving the list from the dataset silently loaded 287 classes
+    # of weights into a 238-class network — which scores 0.000 and looks like a broken model
+    # rather than a broken assumption.
+    manifest = json.loads(Path("../../public/models/lse-vocabulary.json").read_text())
+    concepts = manifest["concepts"]
     index = {c: i for i, c in enumerate(concepts)}
+    unknown = sorted({str(v) for v in bundle["y"]} - set(concepts))
+    if unknown:
+        print(f"{len(unknown)} conceptos del test no estan en el modelo publicado, se omiten")
 
     model = SignHead(len(concepts))
     weights = np.fromfile("../../public/models/lse-vocabulary.bin", dtype=np.float32)
@@ -181,7 +193,10 @@ def main() -> None:
     for i in range(count):
         right, left = bundle[f"r{i}"], bundle[f"l{i}"]
         pose, face = bundle[f"p{i}"], bundle[f"f{i}"]
-        truth.append(index[str(bundle["y"][i])])
+        label = str(bundle["y"][i])
+        if label not in index:
+            continue
+        truth.append(index[label])
 
         whole.append(vocabulary_signature(right, left, pose, face))
 
