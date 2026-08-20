@@ -40,17 +40,20 @@ class SignHead(nn.Module):
     heavy for a phone to download. 128 keeps the accuracy and costs a quarter of that.
     """
 
-    def __init__(self, classes: int, hidden: int = 128):
+    def __init__(
+        self, classes: int, hidden: int = 128, frame_floats: int = FRAME_FLOATS
+    ):
         super().__init__()
-        self.norm = nn.LayerNorm(FRAME_FLOATS)
-        self.gru = nn.GRU(FRAME_FLOATS, hidden, num_layers=2, batch_first=True,
+        self.frame_floats = frame_floats
+        self.norm = nn.LayerNorm(frame_floats)
+        self.gru = nn.GRU(frame_floats, hidden, num_layers=2, batch_first=True,
                           bidirectional=True, dropout=0.2)
         self.head = nn.Sequential(
             nn.Linear(hidden * 2, 256), nn.ReLU(), nn.Dropout(0.3), nn.Linear(256, classes)
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        frames = self.norm(x.view(-1, SIGNATURE_FRAMES, FRAME_FLOATS))
+        frames = self.norm(x.view(-1, SIGNATURE_FRAMES, self.frame_floats))
         output, _ = self.gru(frames)
         # Mean over time rather than the last state: signs end on a hold, so the final frame
         # is often the least informative one.
@@ -195,7 +198,10 @@ def main() -> None:
 
     concepts = sorted(set(y_train_raw) | set(y_val_raw) | set(y_test_raw))
     index = {concept: i for i, concept in enumerate(concepts)}
-    print(f"{len(concepts)} concepts, {len(x_train)} train / {len(x_val)} val / {len(x_test)} test")
+    print(
+        f"{len(concepts)} concepts, {len(x_train)} train / "
+        f"{len(x_val)} val / {len(x_test)} test"
+    )
 
     to_y = lambda raw: torch.tensor([index[c] for c in raw], dtype=torch.long)
     xt, yt = torch.tensor(x_train), to_y(y_train_raw)

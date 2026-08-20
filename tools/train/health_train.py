@@ -35,7 +35,7 @@ from torch import nn
 import health_bench as hb
 from health_words import normalize
 from train import BATCH, EPOCHS, PATIENCE, SignHead, accuracy
-from vocabulary_features import vocabulary_signature
+from vocabulary_features import frame_floats, vocabulary_signature
 
 DATA = Path(__file__).parent / "data"
 UVIGO = DATA / "uvigo"
@@ -45,14 +45,20 @@ SEEDS = (7, 13, 29, 41)
 VAL_SHARE = 0.10
 
 
-def signatures(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def signatures(
+    path: Path, include_face: bool = True
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Feature matrix, labels, source video and cut source from a `_raw.npz`."""
     bundle = np.load(path, allow_pickle=True)
     count = int(bundle["n"][0])
     x = np.stack(
         [
             vocabulary_signature(
-                bundle[f"r{i}"], bundle[f"l{i}"], bundle[f"p{i}"], bundle[f"f{i}"]
+                bundle[f"r{i}"],
+                bundle[f"l{i}"],
+                bundle[f"p{i}"],
+                bundle[f"f{i}"],
+                include_face=include_face,
             )
             for i in range(count)
         ]
@@ -213,6 +219,14 @@ def main() -> None:
     parser.add_argument("--seeds", default=",".join(str(s) for s in SEEDS))
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument(
+        "--no-face",
+        dest="face",
+        action="store_false",
+        help="entrenar sin los 6 escalares de expresion, y sin la razon de correr un tercer "
+        "modelo de MediaPipe por fotograma. Su aporte solo se midio sobre SWL-LSE, que es "
+        "forma de citacion y no tiene marcadores no manuales",
+    )
+    parser.add_argument(
         "--ship",
         type=int,
         metavar="SEMILLA",
@@ -242,8 +256,11 @@ def main() -> None:
     print(f"   signantes de test : {', '.join(split['test_signers'])}")
     print(f"   glosas con *      : {'incluidas' if split['starred_included'] else 'excluidas'}")
 
-    xh, yh, vh, _ = signatures(UVIGO / "health_train_raw.npz")
-    xs_test, ys_test, _, sh_test = signatures(UVIGO / "health_test_raw.npz")
+    face = arguments.face
+    xh, yh, vh, _ = signatures(UVIGO / "health_train_raw.npz", face)
+    xs_test, ys_test, _, sh_test = signatures(UVIGO / "health_test_raw.npz", face)
+    print(f"   bloque de cara    : {'incluido' if face else 'EXCLUIDO'} "
+          f"({frame_floats(face)} numeros por fotograma)")
     print(f"   ventanas          : {len(xh)} entrenamiento / {len(xs_test)} test")
     print("   AVISO: la extraccion no ha terminado, asi que esto es una senal temprana")
     print()
@@ -255,17 +272,27 @@ def main() -> None:
 
     # The number that gives every other number meaning: the released weights, untouched, on the
     # very same held-out windows. Fine-tuning that lands below this line has cost accuracy.
-    keep_base = np.array([i for i, label in enumerate(ys_test) if normalize(label) in shared])
-    base_y = np.array([shared[normalize(ys_test[i])] for i in keep_base])
-    base_top1, base_top3 = accuracy(
-        shipped_model(concepts),
-        torch.tensor(xs_test[keep_base]),
-        torch.tensor(base_y, dtype=torch.long),
-    )
-    print(f"   LINEA BASE, pesos publicados sin tocar, mismas {len(keep_base)} ventanas de "
-          f"test: top1 {base_top1:.3f}  top3 {base_top3:.3f}")
-    print(f"      por fuente del recorte: "
-          f"{by_source(shipped_model(concepts), xs_test[keep_base], base_y, sh_test[keep_base])}")
+    if face:
+        keep_base = np.array(
+            [i for i, label in enumerate(ys_test) if normalize(label) in shared]
+        )
+        base_y = np.array([shared[normalize(ys_test[i])] for i in keep_base])
+        base_top1, base_top3 = accuracy(
+            shipped_model(concepts),
+            torch.tensor(xs_test[keep_base]),
+            torch.tensor(base_y, dtype=torch.long),
+        )
+        print(f"   LINEA BASE, pesos publicados sin tocar, mismas {len(keep_base)} ventanas de "
+              f"test: top1 {base_top1:.3f}  top3 {base_top3:.3f}")
+        print(
+            "      por fuente del recorte: "
+            + by_source(shipped_model(concepts), xs_test[keep_base], base_y, sh_test[keep_base])
+        )
+    else:
+        # The released weights only exist for the layout that includes the face block, so there
+        # is nothing to compare against here. The comparison that matters is this run against
+        # the same run with the block, which is why both are reported side by side.
+        print("   LINEA BASE omitida: los pesos publicados solo existen con el bloque de cara")
     print()
 
     variants = [v.strip().upper() for v in arguments.variants.split(",") if v.strip()]
@@ -286,8 +313,8 @@ def main() -> None:
             print(f"   A: {len(xt_all)} ventanas de las {len(shared)} clases compartidas, "
                   f"test {len(xe)}")
         else:
-            xl, yl, _, _ = signatures(DATA / "train_raw.npz")
-            xv2, yv2, _, _ = signatures(DATA / "val_raw.npz")
+            xl, yl, _, _ = signatures(DATA / "train_raw.npz", face)
+            xv2, yv2, _, _ = signatures(DATA / "val_raw.npz", face)
             xt_all = np.concatenate([xh, xl, xv2])
             yt_all = np.concatenate([yh, yl, yv2])
             # SWL-LSE windows never validate here: the stopping decision has to be made on
@@ -319,7 +346,11 @@ def main() -> None:
         for seed in seeds:
             torch.manual_seed(seed)
             np.random.seed(seed)
-            model = shipped_model(concepts) if variant == "A" else SignHead(len(classes))
+            model = (
+                shipped_model(concepts)
+                if variant == "A"
+                else SignHead(len(classes), frame_floats=frame_floats(face))
+            )
             model = fit(
                 model,
                 torch.tensor(xt_all[ti]),
