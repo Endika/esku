@@ -15,7 +15,7 @@ Three engines answer through one port, so the app does not care which one produc
 | Engine | What it reads | Where it comes from |
 | --- | --- | --- |
 | **Alphabet** | Fingerspelled letters (dactilológico). Spell anything, letter by letter. | Geometric handshape rules — no training data needed. |
-| **Vocabulary** | Whole LSE signs, one word each. | GRU trained on [SWL-LSE](https://zenodo.org/records/13691887): 238 health-domain concepts. **74% top-1, 87% top-3** on the dataset's own held-out test split. |
+| **Vocabulary** | Whole LSE signs, one word each. | GRU over 287 concepts, trained on SWL-LSE and LSE-Health-UVigo. **73% top-1** sign by sign; **33%** written correctly signing continuously. |
 | **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ recordings, stored in IndexedDB on your device. Working now. |
 
 ### What it does not do
@@ -29,8 +29,21 @@ word-level output honestly is a design decision, not a missing feature.
 
 ### How good is the vocabulary model, really
 
-74% top-1 and 87% top-3 on 598 held-out samples across 238 classes — against a 0.4% random
-baseline. Useful, not authoritative. The UI says so, and the transcript is editable.
+Two numbers, because one of them alone would be misleading.
+
+**Sign by sign, at a deliberate pace: 73% top-1, 84% top-3** on 598 held-out samples of isolated
+signs — against a 0.4% random baseline over 287 classes.
+
+**Signing continuously: 33% of signs get the right word written.** Measured end to end — camera to
+transcript, confidence gate included — over 1,060 hand-annotated occurrences from ten signers of
+[LSE-Health-UVigo](https://zenodo.org/records/10234465), none of whom the model was trained on.
+Mean of four seeds, sd 2.1.
+
+That second figure is the honest one for real use, and it is 33% rather than **0.6%**, which is
+what this app did before it was trained on co-articulated signing. The gap between the two columns
+is what a sign looks like when it is glued to the sign before it.
+
+Useful, not authoritative. The UI says so, and the transcript is editable.
 
 Every input was measured rather than assumed. Starting from hands alone:
 
@@ -146,6 +159,10 @@ which the app is fully offline.
 
 ## Licence
 
-MIT for the code. The trained weights derive from a CC-BY-4.0 dataset — see
-[`NOTICE.md`](NOTICE.md) for attribution and for why sign.mt and LSA64 are deliberately
-not used.
+**MIT for the code. The vocabulary model is not** — it is trained partly on LSE-Health-UVigo,
+which Zenodo declares CC BY-NC 4.0, so the weights ship under
+[`public/models/LICENSE.md`](public/models/LICENSE.md) instead. Using Esku is unaffected; a
+commercial fork would have to retrain on SWL-LSE alone.
+
+See [`NOTICE.md`](NOTICE.md) for attribution, and for why sign.mt and LSA64 are deliberately not
+used.
