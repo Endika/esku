@@ -44,7 +44,9 @@ FLOORS = (1150, 750, 500)
 #: the window can never group anything — 600 ms grouped exactly nothing at a 1200 ms window,
 #: which is how this range was chosen rather than guessed.
 GRACES = (0, 600, 1500, 2500)
-GATES = (0.30, 0.40, 0.45, 0.50, 0.60)
+#: 0.70 and 0.80 are here because a model that has seen coarticulation should finally make
+#: confidence mean something, and the shipped one never reached them.
+GATES = (0.30, 0.40, 0.45, 0.50, 0.60, 0.70, 0.80)
 
 
 def normalize(label: str) -> str:
@@ -59,7 +61,23 @@ def normalize(label: str) -> str:
     return "".join(c for c in stripped if unicodedata.category(c) != "Mn").upper().strip()
 
 
-def load_model() -> tuple[SignHead, list[str]]:
+def load_model(
+    state_path: Path | None = None, concepts_path: Path | None = None
+) -> tuple[SignHead, list[str]]:
+    """The shipped model by default, or a retrained one for comparison.
+
+    The shipped weights are the flat float32 blob the browser reads; a retrained model is a
+    torch state_dict with its own class list. Both become the same `SignHead`, so every number
+    this file prints stays comparable across them.
+    """
+    if state_path is not None:
+        loaded = json.loads((concepts_path or MANIFEST).read_text())
+        concepts = loaded["concepts"] if isinstance(loaded, dict) else loaded
+        model = SignHead(len(concepts))
+        model.load_state_dict(torch.load(state_path, weights_only=True))
+        model.eval()
+        return model, concepts
+
     concepts = json.loads(MANIFEST.read_text())["concepts"]
     model = SignHead(len(concepts))
     weights = np.fromfile(WEIGHTS, dtype=np.float32)
@@ -74,18 +92,26 @@ def load_model() -> tuple[SignHead, list[str]]:
     return model, concepts
 
 
-def shared_vocabulary(concepts: list[str], annotations: dict) -> dict[str, int]:
-    """Frozen gloss-key -> concept index map, written once so it cannot drift between runs."""
-    by_key = {normalize(c): i for i, c in enumerate(concepts)}
+def scoring_vocabulary(annotations: dict) -> set[str]:
+    """The frozen set of gloss keys this bench scores, whatever model is being measured.
+
+    It comes from the *shipped* 238 concepts on purpose. A retrained model may know every gloss
+    in the corpus, and letting it widen the denominator from 6,872 instances to 12,871 would
+    make its recall incomparable with the 0.8% baseline it has to beat. Same instances, same
+    criterion, different model.
+    """
+    shipped = json.loads(MANIFEST.read_text())["concepts"]
+    by_key = {normalize(c) for c in shipped}
     gloss_keys = {normalize(label) for spans in annotations.values() for *_, label in spans}
-    shared = {key: by_key[key] for key in sorted(gloss_keys & set(by_key))}
+    keys = sorted(gloss_keys & by_key)
     if SHARED.is_file():
         stored = json.loads(SHARED.read_text())
-        if stored != shared:
-            raise SystemExit(f"{SHARED} no coincide con el mapeo recalculado; revisalo a mano")
+        if sorted(stored) != keys:
+            raise SystemExit(f"{SHARED} no coincide con el vocabulario recalculado; revisalo")
     else:
-        SHARED.write_text(json.dumps(shared, indent=1, ensure_ascii=False, sort_keys=True))
-    return shared
+        SHARED.write_text(json.dumps({k: i for i, k in enumerate(keys)}, indent=1,
+                                     ensure_ascii=False, sort_keys=True))
+    return set(keys)
 
 
 def score_windows(model, path: Path, floor: int) -> tuple[list[tuple], float, float]:
@@ -150,16 +176,30 @@ def arbitrate(scored: list[tuple], grace_ms: float, gate: float) -> list[tuple]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--videos", type=int, help="limitar a los primeros N del cache")
+    parser.add_argument("--weights", type=Path, help="state_dict de un modelo reentrenado")
+    parser.add_argument("--concepts", type=Path, help="lista de clases de ese modelo")
+    parser.add_argument(
+        "--only-test-signers",
+        action="store_true",
+        help="puntuar solo los videos de los signantes apartados en split.json",
+    )
     arguments = parser.parse_args()
 
     annotations, gloss_rows, segment_rows = hb.load_annotations()
     if gloss_rows != hb.EXPECTED_GLOSSES or segment_rows != hb.EXPECTED_SEGMENTS:
         raise SystemExit("el parseo del xlsx no cuadra con el corpus publicado; no continuo")
 
-    model, concepts = load_model()
-    shared = shared_vocabulary(concepts, annotations)
+    model, concepts = load_model(arguments.weights, arguments.concepts)
+    # Predictions are compared as normalised *labels*, not class indices, so the same bench
+    # measures the shipped 238-class model and a retrained 286-class one without translation.
+    predicted_key = [normalize(c) for c in concepts]
+    scoring = scoring_vocabulary(annotations)
 
     paths = [p for p in sorted(hb.CACHE.glob("*.npz")) if p.stem in annotations]
+    if arguments.only_test_signers:
+        split = json.loads((hb.CACHE.parent / "split.json").read_text())
+        wanted = set(split["test_videos"])
+        paths = [p for p in paths if p.stem in wanted]
     if arguments.videos:
         paths = paths[: arguments.videos]
     if not paths:
@@ -167,7 +207,8 @@ def main() -> None:
 
     print("Esku sobre signado continuo real: la palabra escrita, no la frontera")
     print()
-    print(f"   clases compartidas modelo/corpus: {len(shared)} de {len(concepts)}")
+    print(f"   vocabulario puntuable (congelado): {len(scoring)} clases")
+    print(f"   clases del modelo evaluado       : {len(concepts)}")
     print(f"   videos en cache con anotacion   : {len(paths)}")
 
     truth: dict[str, list[tuple[float, float, int]]] = {}
@@ -175,8 +216,8 @@ def main() -> None:
         rows = []
         for start, end, label in annotations[path.stem]:
             key = normalize(label)
-            if key in shared:
-                rows.append((start, end, shared[key]))
+            if key in scoring:
+                rows.append((start, end, key))
         truth[path.stem] = rows
     instances = sum(len(v) for v in truth.values())
     print(f"   instancias puntuables           : {instances}")
@@ -208,8 +249,9 @@ def main() -> None:
                         words += len(emitted)
                         claimed = set()
                         for _, concept, _, start, end in emitted:
-                            for index, (gstart, gend, gconcept) in enumerate(truth[name]):
-                                if index in claimed or gconcept != concept:
+                            said = predicted_key[concept]
+                            for index, (gstart, gend, gkey) in enumerate(truth[name]):
+                                if index in claimed or gkey != said:
                                     continue
                                 if start < gend and end > gstart:
                                     claimed.add(index)

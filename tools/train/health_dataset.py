@@ -158,6 +158,8 @@ def main() -> None:
             per_label = collections.Counter()
             bundle: dict[str, np.ndarray] = {}
             labels: list[str] = []
+            origin: list[str] = []
+            provenance: list[str] = []
             missing = 0
 
             for video in videos:
@@ -178,6 +180,10 @@ def main() -> None:
                         bundle[f"p{index}"] = p
                         bundle[f"f{index}"] = f
                     labels.append(label)
+                    # Provenance per window, so a validation split can stay signer-disjoint
+                    # too: without it the only option is a random tenth, which leaks.
+                    origin.append(video)
+                    provenance.append(source)
                     per_source[source] += 1
                     per_label[label] += 1
 
@@ -194,6 +200,8 @@ def main() -> None:
 
             if not arguments.dry_run and labels:
                 bundle["y"] = np.array(labels)
+                bundle["video"] = np.array(origin)
+                bundle["source"] = np.array(provenance)
                 bundle["n"] = np.array([len(labels)])
                 target = hb.CACHE.parent / f"health_{name}_raw.npz"
                 np.savez(target, **bundle)
