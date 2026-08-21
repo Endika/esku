@@ -117,7 +117,21 @@ it. Nothing from it is committed: `data/` is gitignored.
 | `health_dataset.py` | cuts the corpus into training windows: gold boundaries, real segmenter windows, and rejects |
 | `health_train.py` | retrains on those windows and reports on held-out signers |
 
-**Handedness:** the footage is third person, not a selfie mirror, so MediaPipe's raw label is
+**Handedness — the same wrong belief was written in four places.** «MediaPipe labels the mirrored
+selfie view» appeared in `extract.py`, `extract_raw.py`, `check_calse.py` and the app's
+`handednessFor`, and it is false: `getUserMedia` hands over the sensor's own frames and studio
+footage is third person, so the label is already anatomical everywhere. Inverting it in the two
+readers of SWL-LSE, but not in LSE-Health's extraction, taught one model **two opposite
+conventions at once** — 2.4% anatomical against 98.4% — and since the signature reflects the left
+block into the right hand's space, the disagreeing half arrived mirrored. It survived because no
+offline bench goes through the app's mapping, and it was found by a user saying the app used to
+understand more.
+
+`check_convention.py` is what stops it recurring: it measures each corpus's right block against
+Pose's own wrists, which carry no convention of their own, and fails when two corpora disagree.
+Run it before training on any new corpus.
+
+The footage is third person, not a selfie mirror, so MediaPipe's raw label is
 already anatomical and must not be inverted. Verified three ways — it agrees with Pose's
 anatomical wrist in 98.6% of detections, and inverting it sends both left-handed signers (6 and 7)
 to the wrong slot. `check_calse.py` had been inverting unconditionally and no longer does.
