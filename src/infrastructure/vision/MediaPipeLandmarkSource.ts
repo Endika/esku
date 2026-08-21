@@ -3,6 +3,7 @@ import {
   type ILandmarkSource,
   type LandmarkListener,
 } from '@domain/landmarks/services/ILandmarkSource';
+import { PosePoint } from '@domain/landmarks/value-objects/BodyLandmarks';
 import { type FrameCost, FrameCostMeter } from '@domain/landmarks/value-objects/FrameCost';
 import {
   createHandLandmarks,
@@ -57,6 +58,12 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
   private running = false;
   private facing: CameraFacing = 'user';
   private lastFaceMs = Number.NEGATIVE_INFINITY;
+  /**
+   * Sticky, because a signer turning sideways for a moment must not flip every hand. Starts
+   * `false`: three independent measurements say MediaPipe's raw label is already anatomical, so
+   * "no mirror" is the measured default rather than a hopeful one.
+   */
+  private mirrored = false;
   private heldFace: LandmarkFrame['face'];
   private listener: LandmarkListener | null = null;
   private readonly cost = new FrameCostMeter();
@@ -174,9 +181,12 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
         // VIDEO mode returns the result, so the call has waited for its own GPU work
         this.cost.record(afterHands - timestampMs, afterPose - afterHands, faceMs);
 
+        const seen = mirroringFrom(pose?.landmarks?.[0]);
+        if (seen !== 'unknown') this.mirrored = seen === 'mirrored';
+
         listener({
           timestampMs,
-          hands: toHands(result, this.facing),
+          hands: toHands(result, this.mirrored),
           pose: pose?.landmarks?.[0] ? { points: pose.landmarks[0] } : undefined,
           face: this.heldFace,
         });
@@ -195,6 +205,7 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
     // A held face from the previous session would be the wrong person's, or the wrong camera's
     this.lastFaceMs = Number.NEGATIVE_INFINITY;
     this.heldFace = undefined;
+    this.mirrored = false;
     // Front and rear cameras do not cost the same, and useCamera() switches through here
     this.cost.reset();
 
@@ -218,28 +229,53 @@ interface MediaPipeResult {
   readonly handedness?: { categoryName?: string }[][];
 }
 
+/** Below this normalised shoulder separation the signer is turned too far to tell. */
+const MIN_SHOULDER_GAP = 0.05;
+
+/**
+ * Is the frame a mirror image, judged from the body rather than assumed from the camera?
+ *
+ * Pose labels shoulders anatomically, so the geometry answers on its own: someone facing the
+ * lens has their anatomical left shoulder on the viewer's right, which is the larger x. If the
+ * order is reversed, the frame is mirrored. No device list, no guessing.
+ *
+ * This replaces "the front camera is mirrored", which was written down, unit-tested, and wrong.
+ * `getUserMedia` hands over the sensor's own frames; the selfie mirror is a CSS convention on
+ * the preview, so MediaPipe never saw a mirrored image and its label was anatomical all along.
+ * Measured three ways: against Pose's own wrist on LSE-Health (98.6% agreement), against image
+ * position on CALSE100, and finally on a real phone, where a right hand was landing in the left
+ * slot — and `normalizeHand` mirrors left hands into the right hand's space, so every
+ * right-handed signer was handing the model a reflected handshape.
+ */
+export function mirroringFrom(
+  pose: readonly { x: number }[] | undefined,
+): 'mirrored' | 'direct' | 'unknown' {
+  const left = pose?.[PosePoint.leftShoulder];
+  const right = pose?.[PosePoint.rightShoulder];
+  if (!left || !right) return 'unknown';
+  const gap = left.x - right.x;
+  if (Math.abs(gap) < MIN_SHOULDER_GAP) return 'unknown';
+  return gap > 0 ? 'direct' : 'mirrored';
+}
+
 /**
  * Which of the signer's hands MediaPipe just labelled.
  *
- * MediaPipe reports handedness for a *mirrored* view, which is what a selfie camera gives:
- * its "Left" is the user's right hand. The rear camera is not mirrored, so the mapping
- * inverts. Getting this wrong swaps every hand silently — and because `normalizeHand`
- * mirrors left hands into the right hand's space, two-handed signs come out reflected and
- * the model quietly sees the wrong thing.
+ * Getting this wrong does not swap hands, it corrupts them: `normalizeHand` reflects left hands
+ * into the right hand's space, so a hand in the wrong slot reaches the model inside out.
  *
- * Exported so that reasoning can be tested without a camera.
+ * Exported so the reasoning can be tested without a camera.
  */
-export function handednessFor(label: string | undefined, facing: CameraFacing): Handedness {
-  const mirrored = facing === 'user';
+export function handednessFor(label: string | undefined, mirrored: boolean): Handedness {
   const isRight = mirrored ? label === 'Left' : label === 'Right';
   return isRight ? 'right' : 'left';
 }
 
-function toHands(result: MediaPipeResult, facing: CameraFacing): HandLandmarks[] {
+function toHands(result: MediaPipeResult, mirrored: boolean): HandLandmarks[] {
   const hands: HandLandmarks[] = [];
   result.landmarks?.forEach((points, i) => {
     const label = result.handedness?.[i]?.[0]?.categoryName;
-    hands.push(createHandLandmarks(handednessFor(label, facing), points));
+    hands.push(createHandLandmarks(handednessFor(label, mirrored), points));
   });
   return hands;
 }
