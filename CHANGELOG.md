@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.14.3](https://github.com/Endika/esku/compare/v1.14.2...v1.14.3) (2026-08-21)
+
+
+### Bug Fixes
+
+* retrain on one handedness convention, which the app has been contradicting ([edc8427](https://github.com/Endika/esku/commit/edc842766db5171cdedd1803bf8d75ba005772ac))
+* stop inverting SWL-LSE's handedness, which contradicted the other corpus ([1feeef7](https://github.com/Endika/esku/commit/1feeef790fd8460ec8dd75d67288bc54c6329e35))
+
+
+### Documentation
+
+* record the handedness belief that was wrong in four places ([5d4e1f8](https://github.com/Endika/esku/commit/5d4e1f883d6f02bce420ac2109623c5161395997))
+
 ## [1.14.2](https://github.com/Endika/esku/compare/v1.14.1...v1.14.2) (2026-08-21)
 
 
