@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.14.1](https://github.com/Endika/esku/compare/v1.14.0...v1.14.1) (2026-08-21)
+
+
+### Performance
+
+* run the face detector once a second, not once a frame ([273ff5b](https://github.com/Endika/esku/commit/273ff5b5e89176d0ef2864a37b8e69def3558a8b))
+
+
+### Documentation
+
+* say plainly that nothing leaves the device, and credit both corpora ([e3df75f](https://github.com/Endika/esku/commit/e3df75f09afbaaefb708d56b3f025668d2fe518a))
+
 ## [1.14.0](https://github.com/Endika/esku/compare/v1.13.1...v1.14.0) (2026-08-20)
 
 
