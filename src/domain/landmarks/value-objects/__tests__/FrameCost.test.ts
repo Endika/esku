@@ -13,7 +13,13 @@ describe('FrameCostMeter', () => {
     // One frame landing on a garbage collection must not move the reading
     meter.record(400, 200, 100);
 
-    expect(meter.read()).toEqual({ handsMs: 12, poseMs: 6, faceMs: 3, samples: 3 });
+    expect(meter.read()).toEqual({
+      handsMs: 12,
+      poseMs: 6,
+      faceMs: 3,
+      faceEvery: 1,
+      samples: 3,
+    });
   });
 
   it('averages the two middle samples when the count is even', () => {
@@ -29,7 +35,39 @@ describe('FrameCostMeter', () => {
     for (const ms of [100, 100, 100, 100]) meter.record(ms, ms, ms);
     for (const ms of [10, 10, 10, 10]) meter.record(ms, ms, ms);
 
-    expect(meter.read()).toEqual({ handsMs: 10, poseMs: 10, faceMs: 10, samples: 4 });
+    expect(meter.read()).toEqual({
+      handsMs: 10,
+      poseMs: 10,
+      faceMs: 10,
+      faceEvery: 1,
+      samples: 4,
+    });
+  });
+
+  it('counts a throttled face pass without charging it to every frame', () => {
+    const meter = new FrameCostMeter();
+    // The face detector runs on its own clock, so most frames report no face cost at all.
+    // Averaging zeros into it would hide what one pass costs; charging every frame would
+    // invent a cost that was never paid. Both are wrong, so they are reported apart.
+    meter.record(10, 5, 40);
+    meter.record(10, 5, null);
+    meter.record(10, 5, null);
+    meter.record(10, 5, null);
+
+    expect(meter.read()).toEqual({
+      handsMs: 10,
+      poseMs: 5,
+      faceMs: 40,
+      faceEvery: 4,
+      samples: 4,
+    });
+  });
+
+  it('reports no face cost when the detector never ran, rather than pretending', () => {
+    const meter = new FrameCostMeter();
+    meter.record(10, 5, null);
+
+    expect(meter.read()).toMatchObject({ faceMs: 0, faceEvery: 0 });
   });
 
   it('forgets everything on reset, since the cameras do not cost the same', () => {

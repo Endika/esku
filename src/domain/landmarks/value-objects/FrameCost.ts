@@ -11,6 +11,13 @@ export interface FrameCost {
   readonly handsMs: number;
   readonly poseMs: number;
   readonly faceMs: number;
+  /**
+   * Frames per face pass, as observed. The face detector is throttled — its six scalars are
+   * worth nothing beyond seed noise, and holding the last reading for a full second costs
+   * 0.001 top-1 — so `faceMs` is what one pass costs, not what every frame pays. Multiply
+   * accordingly before comparing it with the other two.
+   */
+  readonly faceEvery: number;
   /** How many frames the medians are taken over. */
   readonly samples: number;
 }
@@ -29,10 +36,11 @@ export class FrameCostMeter {
 
   constructor(private readonly window = 120) {}
 
-  record(handsMs: number, poseMs: number, faceMs: number): void {
+  /** `faceMs` is null on the frames where the throttled face detector did not run. */
+  record(handsMs: number, poseMs: number, faceMs: number | null): void {
     this.push(this.hands, handsMs);
     this.push(this.pose, poseMs);
-    this.push(this.face, faceMs);
+    if (faceMs !== null) this.push(this.face, faceMs);
   }
 
   reset(): void {
@@ -46,7 +54,8 @@ export class FrameCostMeter {
     return {
       handsMs: median(this.hands),
       poseMs: median(this.pose),
-      faceMs: median(this.face),
+      faceMs: this.face.length > 0 ? median(this.face) : 0,
+      faceEvery: this.face.length > 0 ? this.hands.length / this.face.length : 0,
       samples: this.hands.length,
     };
   }

@@ -9,6 +9,7 @@ import {
   type Handedness,
   type HandLandmarks,
 } from '@domain/landmarks/value-objects/Landmark';
+import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import {
   FaceLandmarker,
   FilesetResolver,
@@ -25,6 +26,17 @@ export interface MediaPipeOptions {
   readonly poseModelPath: string;
   readonly faceModelPath: string;
   readonly maxHands: number;
+  /**
+   * How often to run the face detector, in milliseconds.
+   *
+   * Non-manual markers are slow: a raised brow marking a question, a negating head shake, a
+   * mouth gesture — all last half a second or more, so sampling them once per frame was paying
+   * a whole model per frame for a signal that does not move that fast. Measured against the
+   * released weights, holding the last reading for a full second costs **0.001 top-1** while
+   * removing the block entirely costs 0.008. Frame rate is what decides whether this app writes
+   * anything at all, so the third model runs on its own clock.
+   */
+  readonly faceIntervalMs: number;
 }
 
 /**
@@ -44,6 +56,8 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
   private lastVideoTime = -1;
   private running = false;
   private facing: CameraFacing = 'user';
+  private lastFaceMs = Number.NEGATIVE_INFINITY;
+  private heldFace: LandmarkFrame['face'];
   private listener: LandmarkListener | null = null;
   private readonly cost = new FrameCostMeter();
 
@@ -148,17 +162,23 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
         const afterHands = performance.now();
         const pose = this.pose?.detectForVideo(this.video, timestampMs);
         const afterPose = performance.now();
-        const face = this.face?.detectForVideo(this.video, timestampMs);
-        const afterFace = performance.now();
+        const dueFace = timestampMs - this.lastFaceMs >= this.options.faceIntervalMs;
+        let faceMs: number | null = null;
+        if (dueFace) {
+          const face = this.face?.detectForVideo(this.video, timestampMs);
+          faceMs = performance.now() - afterPose;
+          this.lastFaceMs = timestampMs;
+          this.heldFace = face?.faceLandmarks?.[0] ? { points: face.faceLandmarks[0] } : undefined;
+        }
 
         // VIDEO mode returns the result, so the call has waited for its own GPU work
-        this.cost.record(afterHands - timestampMs, afterPose - afterHands, afterFace - afterPose);
+        this.cost.record(afterHands - timestampMs, afterPose - afterHands, faceMs);
 
         listener({
           timestampMs,
           hands: toHands(result, this.facing),
           pose: pose?.landmarks?.[0] ? { points: pose.landmarks[0] } : undefined,
-          face: face?.faceLandmarks?.[0] ? { points: face.faceLandmarks[0] } : undefined,
+          face: this.heldFace,
         });
       }
 
@@ -172,6 +192,9 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
     if (this.frameHandle !== null) cancelAnimationFrame(this.frameHandle);
     this.frameHandle = null;
     this.lastVideoTime = -1;
+    // A held face from the previous session would be the wrong person's, or the wrong camera's
+    this.lastFaceMs = Number.NEGATIVE_INFINITY;
+    this.heldFace = undefined;
     // Front and rear cameras do not cost the same, and useCamera() switches through here
     this.cost.reset();
 
