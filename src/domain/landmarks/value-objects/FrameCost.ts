@@ -32,7 +32,15 @@ export interface FrameCost {
 export class FrameCostMeter {
   private readonly hands: number[] = [];
   private readonly pose: number[] = [];
-  private readonly face: number[] = [];
+  /**
+   * One entry per frame, `null` where the throttled detector did not run.
+   *
+   * Keeping only the frames it ran on looked simpler and reported nonsense: with an independent
+   * cap, a saturated `hands` divided by an unsaturated `face` gave "every 2 frames" for a
+   * detector that was really running every 8. Aligning the arrays is what makes the ratio mean
+   * what it says.
+   */
+  private readonly face: (number | null)[] = [];
 
   constructor(private readonly window = 120) {}
 
@@ -40,7 +48,8 @@ export class FrameCostMeter {
   record(handsMs: number, poseMs: number, faceMs: number | null): void {
     this.push(this.hands, handsMs);
     this.push(this.pose, poseMs);
-    if (faceMs !== null) this.push(this.face, faceMs);
+    this.face.push(faceMs);
+    if (this.face.length > this.window) this.face.shift();
   }
 
   reset(): void {
@@ -51,11 +60,12 @@ export class FrameCostMeter {
 
   read(): FrameCost | null {
     if (this.hands.length === 0) return null;
+    const ran = this.face.filter((ms): ms is number => ms !== null);
     return {
       handsMs: median(this.hands),
       poseMs: median(this.pose),
-      faceMs: this.face.length > 0 ? median(this.face) : 0,
-      faceEvery: this.face.length > 0 ? this.hands.length / this.face.length : 0,
+      faceMs: ran.length > 0 ? median(ran) : 0,
+      faceEvery: ran.length > 0 ? this.face.length / ran.length : 0,
       samples: this.hands.length,
     };
   }

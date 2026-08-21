@@ -63,6 +63,17 @@ describe('FrameCostMeter', () => {
     });
   });
 
+  it('keeps the face ratio honest once the window saturates', () => {
+    // The reading that exposed the bug: 495 frames on a phone reported "every 2" for a detector
+    // running every 8, because a saturated hands array was divided by an unsaturated face one.
+    const meter = new FrameCostMeter(8);
+    for (let frame = 0; frame < 40; frame += 1) {
+      meter.record(70, 38, frame % 8 === 0 ? 37 : null);
+    }
+
+    expect(meter.read()).toMatchObject({ faceMs: 37, faceEvery: 8, samples: 8 });
+  });
+
   it('reports no face cost when the detector never ran, rather than pretending', () => {
     const meter = new FrameCostMeter();
     meter.record(10, 5, null);
