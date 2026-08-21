@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.14.2](https://github.com/Endika/esku/compare/v1.14.1...v1.14.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* read the mirror from the body, since the front camera is not mirrored ([6e13981](https://github.com/Endika/esku/commit/6e1398172e4e89dbc37311a115a84cc10dfd570b))
+
 ## [1.14.1](https://github.com/Endika/esku/compare/v1.14.0...v1.14.1) (2026-08-21)
 
 
