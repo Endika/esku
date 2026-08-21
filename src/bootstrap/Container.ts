@@ -35,6 +35,10 @@ export class Container {
       poseModelPath: `${base}models/pose_landmarker_lite.task`,
       faceModelPath: `${base}models/face_landmarker.task`,
       maxHands: 2,
+      // Once a second, not once a frame: see the option's own note. This is the single change
+      // that gives back a third of the per-frame budget, and the budget is what decides whether
+      // a phone ever closes a window.
+      faceIntervalMs: 1000,
     });
 
     this.vocabulary = new VocabularySignClassifier(

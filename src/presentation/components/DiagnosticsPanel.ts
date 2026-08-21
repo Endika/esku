@@ -29,12 +29,16 @@ const VETO_LABELS: Record<WindowVeto, string> = {
 
 function frameCostLabel(cost: FrameCost | null): string {
   if (!cost) return '—';
-  const total = cost.handsMs + cost.poseMs + cost.faceMs;
   const share = (ms: number) => `${ms.toFixed(0)} ms`;
-  return (
-    `${share(total)} · manos ${share(cost.handsMs)} · pose ${share(cost.poseMs)}` +
-    ` · cara ${share(cost.faceMs)}`
-  );
+  // The face detector runs on its own clock, so its cost is amortised over `faceEvery` frames
+  // before adding it to the total. Reporting the raw pass would overstate what a frame pays.
+  const amortised = cost.faceEvery > 0 ? cost.faceMs / cost.faceEvery : 0;
+  const total = cost.handsMs + cost.poseMs + amortised;
+  const face =
+    cost.faceEvery > 1
+      ? `cara ${share(cost.faceMs)} cada ${cost.faceEvery.toFixed(0)}`
+      : `cara ${share(cost.faceMs)}`;
+  return `${share(total)} · manos ${share(cost.handsMs)} · pose ${share(cost.poseMs)} · ${face}`;
 }
 
 /**
