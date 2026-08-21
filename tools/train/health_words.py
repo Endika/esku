@@ -104,14 +104,22 @@ def scoring_vocabulary(annotations: dict) -> set[str]:
     by_key = {normalize(c) for c in shipped}
     gloss_keys = {normalize(label) for spans in annotations.values() for *_, label in spans}
     keys = sorted(gloss_keys & by_key)
-    if SHARED.is_file():
-        stored = json.loads(SHARED.read_text())
-        if sorted(stored) != keys:
-            raise SystemExit(f"{SHARED} no coincide con el vocabulario recalculado; revisalo")
-    else:
+    if not SHARED.is_file():
         SHARED.write_text(json.dumps({k: i for i, k in enumerate(keys)}, indent=1,
                                      ensure_ascii=False, sort_keys=True))
-    return set(keys)
+        return set(keys)
+
+    # The frozen file wins, and that is the point of freezing it. Shipping a model with more
+    # concepts widens this intersection, and letting it widen would quietly change the
+    # denominator every recall figure was measured against — a better-looking number for a
+    # different exam. Say so loudly and keep scoring the original one.
+    stored = sorted(json.loads(SHARED.read_text()))
+    if stored != keys:
+        print(
+            f"   AVISO: el manifest actual daria {len(keys)} clases puntuables; se mantienen "
+            f"las {len(stored)} congeladas en {SHARED.name} para que las cifras comparen"
+        )
+    return set(stored)
 
 
 def score_windows(model, path: Path, floor: int) -> tuple[list[tuple], float, float]:
