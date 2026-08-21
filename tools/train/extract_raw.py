@@ -40,8 +40,14 @@ def raw_frames(
             categories = hands.handedness[index] if index < len(hands.handedness) else None
             name = categories[0].category_name.lower() if categories else "left"
             points = np.array([[p.x, p.y, p.z] for p in landmarks], dtype=np.float32)
-            # MediaPipe labels the mirrored selfie view, so its "left" is the user's right.
-            if name == "left":
+            # No inversion. The belief that MediaPipe labels a mirrored selfie view was written
+            # here, in `extract.py`, in `check_calse.py` and in the app, and it is wrong: this
+            # corpus is filmed in the third person and the label is already anatomical. Measured
+            # against Pose's own wrists, inverting put the anatomical *left* hand in the right
+            # block 97.6% of the time — while LSE-Health, extracted without the inversion, sits
+            # at 98.4% correct. Training on both at once taught the model two opposite
+            # conventions, which is what `check_convention.py` now exists to prevent.
+            if name == "right":
                 right = points
             else:
                 left = points

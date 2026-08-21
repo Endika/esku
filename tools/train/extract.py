@@ -93,9 +93,11 @@ def frames_from(pickled: list[dict]) -> list[dict[str, np.ndarray]]:
         entry: dict[str, np.ndarray] = {}
         for index, landmarks in enumerate(hands.hand_landmarks):
             categories = hands.handedness[index] if index < len(hands.handedness) else None
-            name = categories[0].category_name.lower() if categories else "right"
-            # MediaPipe labels the mirrored selfie view, so its "left" is the user's right.
-            side = "right" if name == "left" else "left"
+            name = categories[0].category_name.lower() if categories else "left"
+            # Not inverted: see the note in `extract_raw.py`. The label is already anatomical
+            # for third-person footage, and inverting it here is what made this corpus disagree
+            # with LSE-Health about which block is which hand.
+            side = "right" if name == "right" else "left"
             entry[side] = np.array([[p.x, p.y, p.z] for p in landmarks], dtype=np.float32)
 
         if entry:
