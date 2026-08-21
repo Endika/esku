@@ -15,7 +15,7 @@ Three engines answer through one port, so the app does not care which one produc
 | Engine | What it reads | Where it comes from |
 | --- | --- | --- |
 | **Alphabet** | Fingerspelled letters (dactilológico). Spell anything, letter by letter. | Geometric handshape rules — no training data needed. |
-| **Vocabulary** | Whole LSE signs, one word each. | GRU over 287 concepts, trained on SWL-LSE and LSE-Health-UVigo. **73% top-1** sign by sign; **33%** written correctly signing continuously. |
+| **Vocabulary** | Whole LSE signs, one word each. | GRU over 287 concepts, trained on SWL-LSE and LSE-Health-UVigo. **70% top-1** sign by sign; **35%** written correctly signing continuously. |
 | **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ recordings, stored in IndexedDB on your device. Working now. |
 
 ### What it does not do
@@ -31,13 +31,13 @@ word-level output honestly is a design decision, not a missing feature.
 
 Two numbers, because one of them alone would be misleading.
 
-**Sign by sign, at a deliberate pace: 73% top-1, 84% top-3** on 598 held-out samples of isolated
+**Sign by sign, at a deliberate pace: 70% top-1, 86% top-3** on 598 held-out samples of isolated
 signs — against a 0.4% random baseline over 287 classes.
 
-**Signing continuously: 33% of signs get the right word written** — but read the scope before
+**Signing continuously: 35% of signs get the right word written** — but read the scope before
 quoting that. Measured end to end, camera to transcript with the confidence gate included, over
 1,060 hand-annotated occurrences from four held-out signers of
-[LSE-Health-UVigo](https://zenodo.org/records/10234465). Mean of four seeds, sd 2.1.
+[LSE-Health-UVigo](https://zenodo.org/records/10234465). Mean of four seeds, sd 1.2.
 
 The scope is narrow on purpose: **51 health-domain signs scored inside a 287-sign model**. It does
 not extrapolate. Recognising isolated signs over 300 classes, over the ~8,000 of a full LSE
