@@ -320,11 +320,11 @@ whichever the rule was picked for.
 | | words exact | edit distance / char | letters written | correct among them |
 | --- | ---: | ---: | ---: | ---: |
 | handshape table | 0/456 | 0.919 | 742 of 4,321 | 47.7% |
-| **GRU + CTC** | **75/456** | **0.354** | **3,290 of 4,321** | **88.4%** |
+| **GRU + CTC** | **126/456** | **0.187** | **4,054 of 4,321** | **90.2%** |
 
-It writes 4.4x as many letters and is right about nine times in ten instead of fewer than five.
-And **it beats the table on every one of the 14 letters the table even attempted** — five of
-which the table scored a flat 0%. There is no hybrid worth building; the replacement is clean.
+It writes 5.5x as many letters and is right nine times in ten instead of fewer than five. And
+**it beats the table on every one of the 14 letters the table even attempted** — five of which
+the table scored a flat 0%. There is no hybrid worth building; the replacement is clean.
 
 ### How it works, and the one thing that had to change
 
@@ -351,6 +351,38 @@ at one frame it writes 2,981 and 53 words. So `RecognizeSignsUseCase` gives the 
 `CandidateStabilizer(1, 0.5)` and releases the latch whenever the engine abstains. With that
 release, one-frame agreement plus the existing no-repeat latch **is** CTC's greedy collapse —
 the rule was already there, with the wrong constant.
+
+### The hand it reads, which turned out to matter more than the model
+
+`dominantHand` picks the hand with the larger bounding box, and that is the best a single frame
+allows. It is also close to a coin toss when it matters: PROC_KPS.zip carries the corpus's own
+`handness` label, and audited against it over 200 sequences and 31,959 frames the rule takes the
+wrong hand in **23.7% of the frames where both hands are visible**.
+
+Those are only 11.8% of frames, so the arithmetic says 2.8% of frames overall — and the
+arithmetic is badly wrong, because this engine carries hidden state. A wrong hand does not lose
+one frame; it feeds a wrong shape into the GRU and corrupts everything after it. Measured end to
+end on the same weights, only swapping the selection rule at inference:
+
+| hand rule | CER | words exact |
+| --- | ---: | ---: |
+| largest span | 0.307 | 115/456 |
+| accumulated motion | **0.166** | **139/456** |
+
+`DominantHandTracker` is the fix: accumulated wrist motion with exponential decay, because the
+spelling hand moves and a resting hand does not, and because decay follows a signer who changes
+hands instead of remembering the first one. Retrained on hands chosen that way, validation CER
+went from **0.255 (sd 0.005)** to **0.201 (sd 0.016)** over the same four seeds, and the test
+figures in the table above are that model.
+
+What it is *not* is "prefer the right hand". That scores 99% on this corpus, which is 199 of 200
+right-dominant, and fails every left-handed signer — the same shape of mistake as the handedness
+inversion recorded above. Signals ranked on two-hand frames: accumulated motion 92.1%, higher
+hand 89.8%, instantaneous motion 84.1%, largest span 76.3%, widest finger spread 69.9%.
+
+**`SignSegmenter` deliberately still uses the stateless rule.** It reads `dominantHand` to
+measure motion for window boundaries, and changing that would move the segmentation the whole
+vocabulary engine depends on. This change is scoped to the alphabet, where it risks nothing.
 
 ### What augmentation bought, and what it did not
 
@@ -380,11 +412,15 @@ something here, unlike the 0.024 spread the vocabulary head showed.
 
 ### The letters it does not know
 
-Recall per letter on the held-out signers, in training-set frequency order, is the number that a
-single average would hide: **J 5%, W 20%, Y 22%, Ñ 25%, Q 27%, Z 29%** — and those are exactly
-the letters the corpus barely contains (K 16 occurrences in 19k characters, W 23, Ñ 28, Y 45,
-Q 46). They are surfaced to the user as `WEAK_LETTERS`, and that list is a *measurement*: retrain
-and re-derive it from block 7 of the bench rather than copying it forward.
+Recall per letter on the held-out signers is the number a single average would hide, and it
+splits in two. **Measured weak:** Y 17%, J 32%, V 43%, Z 44%. **Too rare to judge:** K appears
+3 times in the test split, Ñ 8, W 10 — those percentages move by one word. Both come from the
+same place, the training set, where K appears 16 times in 18,887 characters, W 23, Ñ 28, Y 45.
+Everything else runs 74-98%.
+
+They are surfaced to the user as `WEAK_LETTERS`, and that list is a *measurement of the shipped
+weights*: re-derive it from block 7 rather than copying it forward. The previous weights had Q
+and X in it, and better hand selection alone took them to 55% and 79%.
 
 ### Reading the number fairly
 

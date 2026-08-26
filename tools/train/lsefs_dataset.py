@@ -49,24 +49,34 @@ def span(points: np.ndarray) -> float:
     )
 
 
-def dominant(frame: dict) -> tuple[np.ndarray, str] | None:
-    """The hand the app would read, or None when MediaPipe saw none.
+#: Matches `DECAY` in `dominantHandTracker.ts`. The two rules must agree or the model is
+#: trained on one hand and shown another.
+DECAY = 0.9
+
+
+def visible(frame: dict) -> dict[str, np.ndarray]:
+    """Both hands MediaPipe actually saw, keyed by side.
 
     An absent hand arrives as 21 points of `null` rather than a missing key. A partly-null hand
     is rejected outright: a shape with invented coordinates is worse than no shape at all.
     """
-    best: tuple[np.ndarray, str] | None = None
-    best_area = -1.0
+    out: dict[str, np.ndarray] = {}
     for side in ("left", "right"):
         block = frame.get(f"{side}_hand")
         points = block and block.get("keypoints")
         if not points or any(p.get("x") is None for p in points):
             continue
-        array = np.array([[p["x"], p["y"], p["z"]] for p in points], dtype=np.float32)
-        area = span(array)
-        if area > best_area:
-            best, best_area = (array, side), area
-    return best
+        out[side] = np.array([[p["x"], p["y"], p["z"]] for p in points], dtype=np.float32)
+    return out
+
+
+def dominant(frame: dict) -> tuple[np.ndarray, str] | None:
+    """Largest span, the stateless rule — kept for the audit that showed it is not good enough."""
+    present = visible(frame)
+    if not present:
+        return None
+    side = max(present, key=lambda s: span(present[s]))
+    return present[side], side
 
 
 def target(label: str) -> list[int]:
@@ -83,13 +93,29 @@ def cut(book: zipfile.ZipFile, name: str) -> tuple[np.ndarray, np.ndarray, str, 
 
     rows = []
     seen = 0
+    motion: dict[str, float] = {}
+    previous: dict[str, np.ndarray] = {}
     for frame in document["frames"]:
-        found = dominant(frame)
-        if found is None:
+        present = visible(frame)
+        # Accumulated wrist motion, decayed — the signing hand moves and a resting one does not.
+        # The stateless largest-span rule takes the wrong hand in 23.7% of two-hand frames, and
+        # because the model carries hidden state that error propagates rather than staying put.
+        for side, points in present.items():
+            before = previous.get(side)
+            travelled = float(np.linalg.norm(points[0, :2] - before[0, :2])) if before is not None else 0.0
+            motion[side] = motion.get(side, 0.0) * DECAY + travelled
+        previous = present
+
+        if not present:
             rows.append(np.zeros(HAND_FLOATS, dtype=np.float32))
             continue
-        points, side = found
-        rows.append(normalize_hand(points, side).reshape(-1).astype(np.float32))
+        if len(present) == 1:
+            side = next(iter(present))
+        else:
+            side = max(present, key=lambda s: motion.get(s, 0.0))
+            if motion.get(side, 0.0) <= 0.0:
+                side = max(present, key=lambda s: span(present[s]))
+        rows.append(normalize_hand(present[side], side).reshape(-1).astype(np.float32))
         seen += 1
 
     # CTC cannot align more labels than timesteps, and a sequence that short is corrupt anyway.

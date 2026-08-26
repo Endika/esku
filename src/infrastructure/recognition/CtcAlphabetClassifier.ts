@@ -1,5 +1,6 @@
+import { DominantHandTracker } from '@domain/landmarks/services/dominantHandTracker';
 import { normalizeHand } from '@domain/landmarks/services/normalizeHand';
-import { dominantHand, type LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
+import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFrame';
 import type { ISignClassifier } from '@domain/recognition/services/ISignClassifier';
 import {
   byConfidenceDescending,
@@ -23,18 +24,20 @@ export interface AlphabetManifest {
 const MAX_CANDIDATES = 3;
 
 /**
- * Letters the model attempts but gets wrong more often than right.
+ * Letters the reader should not trust, for either of two reasons.
  *
- * Measured on LSE-FS-UVigo's held-out signers, recall per letter: J 5%, W 20%, Y 22%, Ñ 25%,
- * Q 27%, Z 29%. The cause is visible in the training set rather than in the handshapes —
- * K appears 16 times in 19k characters, W 23, Ñ 28, Y 45, Q 46. Six letters, and Spanish
- * spells around them most of the time, but a user deserves to know which ones to distrust
- * rather than discovering it a word at a time.
+ * **Measured weak**, recall on LSE-FS-UVigo's held-out signers: Y 17%, J 32%, V 43%, Z 44%.
+ * **Too rare to judge**, and so not vouched for: K appears 3 times in the test split, Ñ 8,
+ * W 10 — those percentages would be one or two words either way.
  *
- * This is a *measurement*, so it is only true of the weights currently shipped. Retrain and
- * re-derive it from block 7 of `tools/bench/alphabet.bench.ts`.
+ * Both cases come from the same place, the training set: K appears 16 times in 18,887
+ * characters, W 23, Ñ 28, Y 45. The rest of the alphabet runs 74-98%.
+ *
+ * This is a *measurement of the shipped weights*, not a property of the handshapes. Retrain
+ * and re-derive it from block 7 of `tools/bench/alphabet.bench.ts` rather than copying it
+ * forward — the previous weights had Q and X in this list and they are now 55% and 79%.
  */
-export const WEAK_LETTERS = ['j', 'w', 'y', 'ñ', 'q', 'z'];
+export const WEAK_LETTERS = ['j', 'k', 'ñ', 'v', 'w', 'y', 'z'];
 
 export class AlphabetLayoutMismatchError extends Error {
   constructor(declared: number, expected: number) {
@@ -70,6 +73,7 @@ export class CtcAlphabetClassifier implements ISignClassifier {
   #layers: GruDirection[] = [];
   #head: { weight: Float32Array; bias: Float32Array } | null = null;
   #state: Float32Array[] = [];
+  readonly #hand = new DominantHandTracker();
   #scores: readonly RawScore[] = [];
 
   constructor(
@@ -127,6 +131,9 @@ export class CtcAlphabetClassifier implements ISignClassifier {
     const hidden = this.#manifest?.hidden ?? 0;
     this.#state = this.#layers.map(() => new Float32Array(hidden));
     this.#scores = [];
+    // The hand history goes too: which hand was signing before a pause says nothing about
+    // which is signing after it, and a stale score would pick the wrong one for several frames.
+    this.#hand.reset();
   }
 
   get lastScores(): readonly RawScore[] {
@@ -139,7 +146,7 @@ export class CtcAlphabetClassifier implements ISignClassifier {
     if (!manifest || !head) return [];
 
     const frame = window.at(-1);
-    const hand = frame ? dominantHand(frame) : null;
+    const hand = frame ? this.#hand.pick(frame) : null;
     if (!hand) {
       // Not a shape to classify. Stepping the GRU on zeros would advance the automaton on
       // nothing, letting a pause change what the next real frame is read as.
