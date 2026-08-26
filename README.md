@@ -14,7 +14,7 @@ Three engines answer through one port, so the app does not care which one produc
 
 | Engine | What it reads | Where it comes from |
 | --- | --- | --- |
-| **Alphabet** | Fingerspelled letters (dactilológico). Spell anything, letter by letter. | Geometric handshape rules — no training data needed. |
+| **Alphabet** | Fingerspelled letters (dactilológico). 14 letters of 27, so not yet anything. | Geometric handshape rules — no training data needed. On real continuous fingerspelling it writes 17% of the letters and gets **half of those right**; it spelled **0 of 456** words exactly. |
 | **Vocabulary** | Whole LSE signs, one word each. | GRU over 287 concepts, trained on SWL-LSE and LSE-Health-UVigo. **70% top-1** sign by sign, **60%** through the app's own segmenter; **37%** written correctly signing continuously. |
 | **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ recordings, stored in IndexedDB on your device. Working now. |
 
