@@ -99,26 +99,40 @@ export function gruPass(
 
   for (let step = 0; step < sequence.length; step += 1) {
     const index = reverse ? sequence.length - 1 - step : step;
-    const input = sequence[index]!;
-
-    const gatesInput = affine(direction.weightIh, input, direction.biasIh);
-    const gatesHidden = affine(direction.weightHh, state, direction.biasHh);
-
-    const next = new Float32Array(hidden);
-    for (let i = 0; i < hidden; i += 1) {
-      const reset = sigmoid((gatesInput[i] ?? 0) + (gatesHidden[i] ?? 0));
-      const update = sigmoid((gatesInput[hidden + i] ?? 0) + (gatesHidden[hidden + i] ?? 0));
-      const candidate = Math.tanh(
-        (gatesInput[2 * hidden + i] ?? 0) + reset * (gatesHidden[2 * hidden + i] ?? 0),
-      );
-      next[i] = (1 - update) * candidate + update * (state[i] ?? 0);
-    }
-
-    state = next;
+    state = gruStep(sequence[index]!, state, direction, hidden);
     outputs[index] = state;
   }
 
   return outputs;
+}
+
+/**
+ * A single GRU timestep: the loop body above, exposed so a live engine can drive it.
+ *
+ * The fingerspelling head reads one camera frame at a time and cannot wait for a sequence to
+ * finish, so it holds the hidden state itself and steps. Sharing this function rather than
+ * writing a second GRU beside it is the point: two copies of these six lines would agree on
+ * the day they were written and quietly disagree afterwards.
+ */
+export function gruStep(
+  input: Float32Array,
+  state: Float32Array,
+  direction: GruDirection,
+  hidden: number,
+): Float32Array<ArrayBuffer> {
+  const gatesInput = affine(direction.weightIh, input, direction.biasIh);
+  const gatesHidden = affine(direction.weightHh, state, direction.biasHh);
+
+  const next = new Float32Array(hidden);
+  for (let i = 0; i < hidden; i += 1) {
+    const reset = sigmoid((gatesInput[i] ?? 0) + (gatesHidden[i] ?? 0));
+    const update = sigmoid((gatesInput[hidden + i] ?? 0) + (gatesHidden[hidden + i] ?? 0));
+    const candidate = Math.tanh(
+      (gatesInput[2 * hidden + i] ?? 0) + reset * (gatesHidden[2 * hidden + i] ?? 0),
+    );
+    next[i] = (1 - update) * candidate + update * (state[i] ?? 0);
+  }
+  return next;
 }
 
 /** Concatenate the forward and reverse outputs per timestep, as PyTorch does. */
