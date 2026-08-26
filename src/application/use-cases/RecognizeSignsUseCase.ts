@@ -39,7 +39,20 @@ const EMPTY_FRAME: LandmarkFrame = { timestampMs: 0, hands: [] };
  */
 export class RecognizeSignsUseCase {
   private readonly segmenter = new SignSegmenter();
-  private readonly frameStabilizer = new CandidateStabilizer();
+  /**
+   * One agreeing frame, and 0.50.
+   *
+   * The old handshape table needed three frames of agreement to damp its flicker. The CTC
+   * head does not flicker, it *spikes*: the loss is invariant to how long a letter is held,
+   * so the model marks each letter on a frame or two and blanks the rest. Measured on
+   * LSE-FS-UVigo, non-blank runs are 26% one frame long and only 23% reach three — and a
+   * three-frame rule over those posteriors writes 550 letters of 3,758 and not one whole
+   * word, against 2,981 and 53 words at one frame.
+   *
+   * With `release()` on abstention, one-frame agreement plus the no-repeat latch *is* CTC's
+   * greedy collapse. The rule was already here; it just had the wrong constant.
+   */
+  private readonly frameStabilizer = new CandidateStabilizer(1, 0.5);
   /**
    * 0.60, and the second number is the one that matters — it is a *second* floor, applied
    * on top of the 0.45 the vocabulary engine already enforces, so it alone decides.
@@ -180,6 +193,10 @@ export class RecognizeSignsUseCase {
     this.busy = true;
     try {
       const live = await this.classifyFrame([frame]);
+      // No candidate means a boundary: either no hand, or the model said "no letter here".
+      // Releasing on it is what lets the second L of ELLA through — without it the latch
+      // that stops a held letter repeating also swallows a genuine double.
+      if (live.length === 0) this.frameStabilizer.release();
       const accepted = this.frameStabilizer.accept(live[0] ?? null);
       if (accepted) this.append(accepted, frame.timestampMs);
 

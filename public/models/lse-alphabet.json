@@ -1,0 +1,85 @@
+{
+ "hidden": 128,
+ "layers": 2,
+ "inputs": 63,
+ "classes": 28,
+ "blank": 0,
+ "letters": [
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+  "N",
+  "O",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "U",
+  "V",
+  "W",
+  "X",
+  "Y",
+  "Z",
+  "Ñ"
+ ],
+ "order": [
+  "gru.weight_ih_l0",
+  "gru.weight_hh_l0",
+  "gru.bias_ih_l0",
+  "gru.bias_hh_l0",
+  "gru.weight_ih_l1",
+  "gru.weight_hh_l1",
+  "gru.bias_ih_l1",
+  "gru.bias_hh_l1",
+  "head.weight",
+  "head.bias"
+ ],
+ "shapes": {
+  "gru.weight_ih_l0": [
+   384,
+   63
+  ],
+  "gru.weight_hh_l0": [
+   384,
+   128
+  ],
+  "gru.bias_ih_l0": [
+   384
+  ],
+  "gru.bias_hh_l0": [
+   384
+  ],
+  "gru.weight_ih_l1": [
+   384,
+   128
+  ],
+  "gru.weight_hh_l1": [
+   384,
+   128
+  ],
+  "gru.bias_ih_l1": [
+   384
+  ],
+  "gru.bias_hh_l1": [
+   384
+  ],
+  "head.weight": [
+   28,
+   128
+  ],
+  "head.bias": [
+   28
+  ]
+ }
+}

@@ -3,7 +3,7 @@ import { RecognizeSignsUseCase } from '@application/use-cases/RecognizeSignsUseC
 import { TeachCustomSignUseCase } from '@application/use-cases/TeachCustomSignUseCase';
 import type { ISignClassifier } from '@domain/recognition/services/ISignClassifier';
 import { IndexedDBCustomSignRepository } from '@infrastructure/persistence/indexeddb/IndexedDBCustomSignRepository';
-import { HandshapeAlphabetClassifier } from '@infrastructure/recognition/HandshapeAlphabetClassifier';
+import { CtcAlphabetClassifier } from '@infrastructure/recognition/CtcAlphabetClassifier';
 import { PrototypeSignClassifier } from '@infrastructure/recognition/PrototypeSignClassifier';
 import { VocabularySignClassifier } from '@infrastructure/recognition/VocabularySignClassifier';
 import { EngineCacheStorage } from '@infrastructure/storage/EngineCacheStorage';
@@ -46,7 +46,7 @@ export class Container {
       `${base}models/lse-vocabulary.bin`,
     );
 
-    this.classifiers = [new HandshapeAlphabetClassifier(), this.vocabulary, this.taught];
+    this.classifiers = [new CtcAlphabetClassifier(), this.vocabulary, this.taught];
     this.recognize = new RecognizeSignsUseCase(this.source, this.classifiers);
   }
 }

@@ -308,6 +308,84 @@ LSE-FS labels the spelled word, not the letters, so supervision has to come from
 CTC. That is a separate project with its own spec, and 2,158 train plus 430 validation sequences
 are untouched and waiting for it.
 
+### Replaced, and by how much
+
+The table is gone. `CtcAlphabetClassifier` reads the same frames with a causal GRU trained on
+LSE-FS's 2,158 held-in sequences, and the bench above — unchanged, scoring by output string,
+which is why it could measure both — puts the two side by side on the same 456 test sequences.
+Each engine is driven the way its own app version drove it: the table needed three agreeing
+frames to damp its flicker, the CTC head needs one. Scoring both under one rule would flatter
+whichever the rule was picked for.
+
+| | words exact | edit distance / char | letters written | correct among them |
+| --- | ---: | ---: | ---: | ---: |
+| handshape table | 0/456 | 0.919 | 742 of 4,321 | 47.7% |
+| **GRU + CTC** | **75/456** | **0.354** | **3,290 of 4,321** | **88.4%** |
+
+It writes 4.4x as many letters and is right about nine times in ten instead of fewer than five.
+And **it beats the table on every one of the 14 letters the table even attempted** — five of
+which the table scored a flat 0%. There is no hybrid worth building; the replacement is clean.
+
+### How it works, and the one thing that had to change
+
+`lsefs_dataset.py` cuts the corpus to one normalised dominant hand per frame — 63 floats from
+`normalize_hand`, the app's own transform, and deliberately without the wrist position that
+`hand_features` appends, because a letter is the same letter anywhere in frame.
+`lsefs_train.py` fits a causal 2x128 GRU with CTC, 176,796 parameters, **0.71 MB**.
+
+**Causal is not a preference.** The app classifies frame by frame on a live camera, so the
+model may never see the future; the bidirectional GRU that CTC papers reach for is unusable
+here.
+
+**The blank is the point.** LSE-FS labels the spelled word and never says when each letter
+happened, so CTC is what makes the corpus usable at all — but its blank class is also a
+*trained* "no letter here", which a similarity table cannot express at any threshold. Those are
+the negatives `health_dataset.py` could not build for the vocabulary head, and here they fall
+out of the training method.
+
+**And blank forced the one app change.** CTC posteriors are peaky by construction — the loss is
+invariant to how long a letter is held, so the model spikes on a frame or two and blanks the
+rest. Measured: non-blank runs are 26% one frame long and only 23% reach three. Under the old
+three-frame agreement rule this model writes 550 letters of 3,758 and *not one whole word*;
+at one frame it writes 2,981 and 53 words. So `RecognizeSignsUseCase` gives the alphabet engine
+`CandidateStabilizer(1, 0.5)` and releases the latch whenever the engine abstains. With that
+release, one-frame agreement plus the existing no-repeat latch **is** CTC's greedy collapse —
+the rule was already there, with the wrong constant.
+
+### What augmentation bought, and what it did not
+
+The ceiling here is data, not capacity: 18,887 training letters over 27 classes, and validation
+CER bottoms out and then worsens. A wider model buys overfitting, so the budget went to widening
+the corpus instead. One seed each:
+
+| | validation CER |
+| --- | ---: |
+| none | 0.349 |
+| temporal resampling | 0.309 |
+| rotation + noise + frame dropout | 0.272 |
+| **all four** | **0.262** |
+
+Two that are *not* there, and the reason matters. **Mirroring** looked free and is harmful:
+`normalize_hand` already folds left hands into right-hand space, so negating x again
+manufactures shapes no live frame carries. **Scale jitter** is pointless for the same reason —
+every coordinate is already divided by palm width.
+
+Batching is also worth a warning. Sorting sequences by length to kill padding waste sped
+training up 2.4x and cost 0.036 of CER, because length correlates with word length and the
+batches stopped being diverse. Shuffling within windows eight batches wide keeps the speed and
+gives the accuracy back.
+
+Final: **validation CER 0.255, sd 0.005 over seeds 7/13/29/41.** Tight enough that one run means
+something here, unlike the 0.024 spread the vocabulary head showed.
+
+### The letters it does not know
+
+Recall per letter on the held-out signers, in training-set frequency order, is the number that a
+single average would hide: **J 5%, W 20%, Y 22%, Ñ 25%, Q 27%, Z 29%** — and those are exactly
+the letters the corpus barely contains (K 16 occurrences in 19k characters, W 23, Ñ 28, Y 45,
+Q 46). They are surfaced to the user as `WEAK_LETTERS`, and that list is a *measurement*: retrain
+and re-derive it from block 7 of the bench rather than copying it forward.
+
 ### Reading the number fairly
 
 The labels are health-domain: 456 words, some of them multi-token — 87 contain a space, 12 an

@@ -85,16 +85,28 @@ export function editOps(expected: string, actual: string): EditOps {
 /**
  * Collapses a stream of per-frame guesses into the word the app would have written.
  *
- * Uses the shipped `CandidateStabilizer` at its shipped defaults rather than reimplementing
- * the collapse, and drives it the way `RecognizeSignsUseCase.onFrame` does: a frame with no
- * hand releases the latch first — that release is the only reason a double letter can be
- * spelled at all — and every frame is then offered, hand or not.
+ * Uses the shipped `CandidateStabilizer` rather than reimplementing the collapse, and drives
+ * it the way `RecognizeSignsUseCase.onFrame` does: a step that yields no candidate releases
+ * the latch first — no hand, or an engine that abstained — and every step is then offered.
+ * That release is the only reason a doubled letter can be spelled at all.
+ *
+ * The stabiliser is passed in because the two engines need different constructions, and the
+ * bench must measure whichever the app actually ships. A handshape table flickers and wants
+ * three agreeing frames; a CTC head spikes and wants one. Hard-coding either would make this
+ * bench measure a configuration nobody runs.
  */
-export function spell(steps: readonly SpellStep[]): string {
-  const stabilizer = new CandidateStabilizer();
+export function spell(
+  steps: readonly SpellStep[],
+  stabilizer: CandidateStabilizer = new CandidateStabilizer(),
+  releaseOnAbstain = false,
+): string {
   let written = '';
   for (const step of steps) {
-    if (step.empty) stabilizer.release();
+    // Two different app versions, two different boundary rules, and they must not be mixed.
+    // The table engine released only when the hand left frame; the CTC engine also releases
+    // when the model says "no letter here", because that abstention *is* a boundary. Scoring
+    // the table under the CTC rule measures a build nobody ever shipped.
+    if (step.empty || (releaseOnAbstain && step.top === null)) stabilizer.release();
     const accepted = stabilizer.accept(step.top);
     if (accepted) written += accepted.gloss.text;
   }

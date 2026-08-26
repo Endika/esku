@@ -1,7 +1,12 @@
 # Licence of the shipped models
 
-**The application's source code is MIT (see [`LICENSE`](../../LICENSE)). The trained vocabulary
-model in this directory is not.**
+**The application's source code is MIT (see [`LICENSE`](../../LICENSE)). The two trained models
+in this directory carry different terms, and they are not interchangeable — read both.**
+
+| model | licence | why |
+| --- | --- | --- |
+| `lse-vocabulary.*` | **CC BY-NC 4.0** | derives from a non-commercial corpus |
+| `lse-alphabet.*` | **CC BY 4.0** | derives only from CC BY 4.0 material |
 
 ## `lse-vocabulary.bin` and `lse-vocabulary.json` — CC BY-NC 4.0
 
@@ -21,6 +26,21 @@ International**, with attribution as recorded in [`NOTICE.md`](../../NOTICE.md).
 Using Esku is unaffected: the app is free and stays free. What this does mean is that **a
 commercial fork cannot ship this model**. Retraining on SWL-LSE alone produces an MIT-clean model,
 at the cost of the accuracy that LSE-Health's co-articulated annotations buy.
+
+## `lse-alphabet.bin` and `lse-alphabet.json` — CC BY 4.0
+
+The fingerspelling model is trained on one corpus, and it carries no commercial restriction:
+
+| corpus | licence | DOI |
+| --- | --- | --- |
+| **LSE-FS-UVigo** | CC BY 4.0 | [`10.5281/zenodo.15797079`][fs] |
+
+[fs]: https://doi.org/10.5281/zenodo.15797079
+
+**These weights are not encumbered by the vocabulary model's non-commercial clause.** Sitting in
+the same directory is not contagion, and the distinction is worth stating plainly: a commercial
+fork may ship `lse-alphabet.*` and must not ship `lse-vocabulary.*`. Attribution as recorded in
+[`NOTICE.md`](../../NOTICE.md).
 
 This is the cautious reading. UVigo's reply pointing us at the corpus placed LSE-Health under
 CC BY 4.0 while its Zenodo record declares CC BY-NC 4.0; until that is settled we assume the
