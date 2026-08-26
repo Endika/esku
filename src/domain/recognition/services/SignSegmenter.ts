@@ -25,9 +25,18 @@ export interface SegmenterOptions {
   /**
    * How long a window must run before a deceleration may close it.
    *
-   * Signs decelerate internally — a two-part sign slows at its hinge — so without a floor
-   * near the typical sign length the rule chops signs in half. Measured: dropping this from
-   * 1150 ms to 850 ms costs 8 points of isolated top-1 to buy 3 points of continuous recovery.
+   * Two opposed pressures. Signs decelerate internally — a two-part sign slows at its hinge —
+   * so without a floor near the typical sign length the rule chops signs in half. But the
+   * floor also puts short signs out of reach as arithmetic: a window forced to last F can
+   * only reach IoU 0.5 against a sign of length L if L >= F/2, and half of real signing is
+   * shorter than 480 ms.
+   *
+   * Which pressure wins depends on the classifier, and it has changed sides. Against the
+   * dictionary-only model, 1150 -> 850 cost 8 points of isolated top-1 to buy 3 of continuous
+   * recovery, so the floor stayed high. Re-measured on the co-articulated model over the same
+   * four seeds, that move buys **+6.9 points of continuous word recall** (34.9% -> 41.9%) for
+   * 5.4 of isolated. Shorter windows only pay once the classifier has seen a sign glued to
+   * the sign before it; the two levers multiply.
    */
   readonly minSignMs: number;
   /** Shortest accepted sign; below this it is camera noise, not a sign. */
@@ -79,14 +88,16 @@ export interface SegmenterOptions {
  * `LandmarkFrame` has always carried `timestampMs`; it just was not read.
  *
  * The values below are the swept frame counts converted at 20.00 fps — and N frames span
- * N-1 intervals, so the 24-frame floor is 1150 ms, not 1200. Converting exactly is what lets
- * `simulate_app.py` reproduce the pre-conversion scores and prove the port faithful.
+ * N-1 intervals, so the old 24-frame floor is 1150 ms, not 1200. Converting exactly is what
+ * lets `simulate_app.py` reproduce the pre-conversion scores and prove the port faithful.
+ * `minSignMs` is the one value that no longer comes from that sweep: it was re-measured on
+ * real continuous signing and lowered to 850, which is 18 frames at the dataset's rate.
  */
 export const DEFAULT_SEGMENTER_OPTIONS: SegmenterOptions = {
   motionRate: 0.6,
   decelerationDrop: 0.45,
   decelerationHoldMs: 50,
-  minSignMs: 1150,
+  minSignMs: 850,
   minMs: 150,
   minFrames: 4,
   maxMs: 2350,

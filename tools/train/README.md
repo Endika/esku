@@ -148,6 +148,37 @@ Two findings from it worth not rediscovering:
   only ever seen dictionary recordings. Fixing the classifier first is what makes the boundary
   work pay — the two levers multiply.
 
+### The floor, settled: 1150 → 850
+
+With the classifier fixed, the second finding was re-tested and the trade reversed. Both columns
+below are the same knob at `gate 0.50`, `grace 0` — the app's own `CandidateStabilizer(1, 0.5)` —
+scored on the four held-out signers, 1,060 annotated instances of the 51 frozen classes, against
+the shipped model. Isolated is the `app segmenter` row of `simulate_app.py`, 598 SWL-LSE samples.
+
+| `MIN_SIGN_MS` | continuous word recall | isolated top-1 |
+| ---: | ---: | ---: |
+| 1150 | 33.2% | 65.3% |
+| 1000 | 36.4% | 62.4% |
+| 900 | 38.7% | 60.9% |
+| **850** | **41.8%** | **59.9%** |
+| 800 | 43.1% | 57.1% |
+| 750 | 46.2% | 55.6% |
+| 500 | 53.0% | 44.4% |
+
+The trade stays favourable down to 750 and inverts by 500. 850 has the best ratio, +8.6 for −5.4,
+and it is the value the pre-retrain comment in `SignSegmenter.ts` had explicitly rejected at −8
+for +3 — the same decision, measured against a classifier that has seen co-articulation, comes
+out the other way. Re-run over all four seeds of the shipped variant, the two ends read **34.9%
+(sd 1.2)** and **41.9% (sd 0.9)**: +6.9 points, same direction in every seed.
+
+Two knobs that did *not* move:
+
+- **The grace period buys nothing.** 0 and 600 ms are bit-identical at every floor, because a
+  window is longer than the grace and so nothing ever groups; 1500 and 2500 lose 8-10 points.
+- **The gate stays at 0.50.** Lower reads better here — 55.1% at 0.30 with the 750 floor — but
+  `health_words.py` counts recall per instance and never counts a wrong word, so it cannot price
+  a looser gate. Moving it needs a precision measurement this bench does not make.
+
 `health_dataset.py` deliberately cannot build a useful reject class from this corpus. "Overlaps no
 gloss" is not evidence of silence — only 101 sign types are annotated, about 24 glosses a minute
 against the 90-150 signs a minute of fluent discourse, so such a window is usually a real sign

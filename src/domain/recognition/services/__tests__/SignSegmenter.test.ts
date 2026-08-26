@@ -238,6 +238,16 @@ describe('SignSegmenter', () => {
       expect(segmenter.isActive).toBe(true);
     });
 
+    it('closes a sign the old 1150 ms floor could never emit, at every frame rate', () => {
+      // The floor moved to 850 because half of real signing is shorter than 480 ms and a
+      // window forced to last F cannot reach IoU 0.5 below F/2. A 1000 ms sign sits in the
+      // gap the move opened: emittable now, silently swallowed before, at any device speed.
+      for (const fps of [8, 20, 60]) {
+        const segmenter = new SignSegmenter(DEFAULT_SEGMENTER_OPTIONS);
+        expect(run(segmenter, signAt(fps, 1000, RATES)), `${fps} fps`).toHaveLength(1);
+      }
+    });
+
     it('gives the same sign a window of the same duration at any frame rate', () => {
       const at = (fps: number) => {
         const segmenter = new SignSegmenter(DEFAULT_SEGMENTER_OPTIONS);
@@ -256,7 +266,8 @@ describe('SignSegmenter', () => {
 
   it('does not cut a sign at its own internal slow-down', () => {
     // Signs decelerate mid-way too — a two-part sign slows at its hinge. Believing that is
-    // a boundary halves every sign, and costs 8 points of isolated accuracy.
+    // a boundary halves every sign, which is what `minSignMs` exists to prevent and why it
+    // cannot simply be driven to zero however much short signs would gain.
     const segmenter = new SignSegmenter({ ...OPTIONS, minSignMs: 396 });
     const frames = pacedFrames([0.05, 0.05, 0.02, 0.05, 0.05, 0.05]);
 
