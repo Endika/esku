@@ -5,6 +5,7 @@ import {
   byConfidenceDescending,
   type SignCandidate,
 } from '@domain/recognition/value-objects/Gloss';
+import type { RawScore } from '@domain/recognition/value-objects/RecognitionDiagnostics';
 import { type HandshapeTemplate, LSE_ALPHABET } from './packs/lseAlphabet';
 
 /** How far a feature may drift before it contributes nothing. Wider = more forgiving. */
@@ -29,7 +30,22 @@ export class HandshapeAlphabetClassifier implements ISignClassifier {
   readonly id = 'lse-alphabet';
   readonly granularity = 'frame' as const;
 
+  #scores: readonly RawScore[] = [];
+
   constructor(private readonly templates: readonly HandshapeTemplate[] = LSE_ALPHABET) {}
+
+  /**
+   * Every letter's score from the last `classify`, before `MIN_SCORE` threw any away.
+   *
+   * Without it a shape that scored 0.71 on the right letter and a frame with no hand in it
+   * are the same empty array from outside, and they want opposite fixes — a looser table
+   * against a stricter one. `RecognizeSignsUseCase` only reads this from `window` engines,
+   * so nothing in the app changes; it exists for the bench that measures this engine against
+   * a real fingerspelling corpus, where separating those two is the whole question.
+   */
+  get lastScores(): readonly RawScore[] {
+    return this.#scores;
+  }
 
   isReady(): boolean {
     return true;
@@ -42,11 +58,21 @@ export class HandshapeAlphabetClassifier implements ISignClassifier {
   async classify(window: readonly LandmarkFrame[]): Promise<readonly SignCandidate[]> {
     const frame = window.at(-1);
     const hand = frame ? dominantHand(frame) : null;
-    if (!hand) return [];
+    if (!hand) {
+      this.#scores = [];
+      return [];
+    }
 
     const shape = describeHandShape(hand);
-    return this.templates
+    const scored = this.templates
       .map((template) => ({ template, score: scoreTemplate(shape, template) }))
+      .sort((a, b) => b.score - a.score);
+    this.#scores = scored.map(({ template, score }) => ({
+      text: template.letter,
+      confidence: score,
+    }));
+
+    return scored
       .filter(({ score }) => score >= MIN_SCORE)
       .map(({ template, score }) => ({
         gloss: { id: template.letter, conceptId: template.letter, text: template.letter },

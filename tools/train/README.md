@@ -232,3 +232,86 @@ top-1 untouched.
 `windowSignature` is built for one person repeating their own sign and carries no invariance
 across bodies, cameras and styles. The negative result is recorded here so nobody spends
 another afternoon on it; revisit only with a corpus that has many more signers per sign.
+
+## Fingerspelling — the alphabet engine, measured at last
+
+`HandshapeAlphabetClassifier` shipped for its whole life as the one engine with no number
+against it: "geometric handshape rules, no training data needed", and nothing else. LSE-FS-UVigo
+(Zenodo `10.5281/zenodo.15797079`, CC BY 4.0) is 3,044 sequences of real continuous
+fingerspelling with the corpus's own signer-disjoint split. Its held-out 456 are the exam.
+
+| script | what it answers |
+| --- | --- |
+| `lsefs_extract.py` | caches the held-out split's hands from the 7.3 GB `RAW_KPS.zip`, once |
+| `tools/bench/alphabet.bench.ts` | what the **shipped TypeScript** spells, run unmodified |
+
+The bench is TypeScript on purpose. Every other bench here reimplements the app in Python and
+then has to prove the port faithful; that proof has failed twice, once on handedness and once on
+frame-counted thresholds. Running the real table, the real geometry and the real stabiliser
+removes the question. `npm run bench:alphabet`, after `python lsefs_extract.py` once.
+
+### The number
+
+**0 of 456 words spelled exactly. 0.919 edit operations per annotated character.**
+
+That total hides the shape of the failure, which is the whole point of the breakdown:
+
+| | count | share |
+| --- | ---: | ---: |
+| letters annotated | 4,321 | |
+| letters the app wrote | 742 | 17% of annotated |
+| of those, correct | 354 | **48% of what it wrote** |
+| letters never written | 3,581 | **83% of annotated** |
+| substitutions | 386 | 9% |
+| insertions | 2 | 0% |
+
+**The engine is not wrong so much as silent.** When it commits to a letter it is right about half
+the time, which for a table written by hand against no data at all is not a bad table. It just
+almost never commits.
+
+### Why it stays silent, and what that costs to fix
+
+- **85.7% of frames with a hand in them produce no candidate at all.** The best-scoring template
+  on the median such frame reaches **0.406** against a 0.72 floor; p75 is 0.648 and even p90 only
+  0.758. This is not a threshold set slightly too high. Fluent fingerspelling is mostly
+  *transitions* — the engine's own docstring says "letters are held, not travelled", and at
+  conversational speed they are barely held.
+- **Three consecutive agreeing frames is the second gate.** With candidates arriving on one frame
+  in seven, three in a row of the same letter is rare, so even the frames that do fire mostly
+  never reach the transcript.
+- **The table covers 14 letters of 27** — a b c d e f i l o s u v w y. Only **24 of the 456 test
+  words (5.3%)** contain no letter outside it, so exact-word accuracy was capped at 5.3% before
+  a single frame was read, the same arithmetic ceiling `MIN_SIGN_MS` imposed on short signs. The
+  missing letters are the common ones: R touches 53% of the test words, N 44%, T 35%, M 29%.
+- Also worth fixing while there: **`k` is in neither list** — not in `LSE_ALPHABET` and not in
+  `UNSUPPORTED_LETTERS`, so the UI does not warn about it.
+
+The most-confused pairs are O→F (34), I→Y (18), A→D and O→D (12 each). D, F, C and Y absorb most
+of the wrong answers: the permissive templates win whenever the real shape is mid-transition.
+
+### What this says about retraining
+
+Per the decision rule set before the measurement: the failure is **deletions with low top
+scores**, not substitutions and not a mistuned threshold. Loosening the floor would buy noise —
+p50 is 0.406, so reaching most frames means accepting near-random shapes — and editing the table
+cannot help a frame that is genuinely between two letters.
+
+So the geometric rules do not describe these hands, and a learned handshape classifier is
+justified. Two things it must do that the table does not:
+
+1. **Cover the alphabet.** Accuracy on 14 letters cannot exceed 5.3% word accuracy here.
+2. **Say something about transition frames** — either recognise mid-motion shapes or abstain in
+   a way the stabiliser can use, which is the same missing-negatives problem the vocabulary
+   engine has.
+
+LSE-FS labels the spelled word, not the letters, so supervision has to come from alignment or
+CTC. That is a separate project with its own spec, and 2,158 train plus 430 validation sequences
+are untouched and waiting for it.
+
+### Reading the number fairly
+
+The labels are health-domain: 456 words, some of them multi-token — 87 contain a space, 12 an
+`@` and 11 a `.`, because the corpus includes spelled emails and addresses. Those are scored as
+written, which is honest but means the figure is not "accuracy on Spanish words". Nothing here
+extrapolates to fingerspelling in general, and the corpus is not redistributed: `data/` is
+gitignored, and only derived numbers appear in this file.
