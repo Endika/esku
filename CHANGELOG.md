@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.15.1](https://github.com/Endika/esku/compare/v1.15.0...v1.15.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* read the hand that is moving, since the wrong one poisons the whole sequence ([5a5f469](https://github.com/Endika/esku/commit/5a5f469502d88b59b159749611a480134b1633d8))
+
+
+### Documentation
+
+* record where each corpus archive comes from, so deleting it is reversible ([ae8b742](https://github.com/Endika/esku/commit/ae8b742bce6856af1261690efb87e0e2d2690d2d))
+
 ## [1.15.0](https://github.com/Endika/esku/compare/v1.14.4...v1.15.0) (2026-08-26)
 
 
