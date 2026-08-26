@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.15.0](https://github.com/Endika/esku/compare/v1.14.4...v1.15.0) (2026-08-26)
+
+
+### Features
+
+* read fingerspelling with a GRU trained on real continuous spelling ([f68c8e0](https://github.com/Endika/esku/commit/f68c8e09dc416c14035f09d20ecb3ff36d1bb538))
+* replace the handshape table with a model trained on real fingerspelling ([99f5aba](https://github.com/Endika/esku/commit/99f5abac1e74a61d48783c8d16df8e0f2e5e3697))
+
 ## [1.14.4](https://github.com/Endika/esku/compare/v1.14.3...v1.14.4) (2026-08-26)
 
 
