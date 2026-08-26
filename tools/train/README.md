@@ -179,6 +179,49 @@ Two findings from it worth not rediscovering:
   only ever seen dictionary recordings. Fixing the classifier first is what makes the boundary
   work pay — the two levers multiply.
 
+### Starred glosses: excluded from training, scored anyway — on purpose
+
+2,178 of LSE-Health's 15,098 gloss occurrences carry a `*` prefix, and the two halves of this
+pipeline treat them differently. That looks like an inconsistency and is not, so it is written
+down here before someone "fixes" it.
+
+The corpus authors explain the prefix as "slight drift from normal realization, or an OOV sign
+very similar visually", and the *reason* for each one lives in a `VAR` tier inside the ELAN
+bundle — one code per starred gloss, all 2,178 of them:
+
+| code | n | what it is | usable? |
+| --- | ---: | --- | --- |
+| `SIM` | 472 | a different gloss that merely looks like this one | **no — the label is wrong** |
+| `OCC` | 68 | the sign is occluded by another body part | no |
+| `OUT` | 18 | the sign goes out of frame | no |
+| `SHO` | 485 | very short sign, from speed and heavy co-articulation | yes, and it is the hard case |
+| `MPH` `LAX` `MAN` `LOC` | 1,129 | morphology, relaxed execution, odd non-dominant hand, shifted location | yes — the real sign, executed differently |
+
+**Training excludes them** (`health_split.py`, `starred_included: false`), on the corpus authors'
+own advice: they are articulations that differ from the nominal one and would smear the classes.
+
+**Scoring includes them.** `health_words.py:normalize` strips the `*` and treats the gloss like
+any other. That is deliberate, and it makes the published figure the *strictest* of the
+available policies rather than a flattering one — the 472 `SIM` occurrences ask the model for a
+label belonging to a sign it is not being shown. Measured on the held-out signers at the shipped
+floor and gate, everything else equal:
+
+| policy | scorable instances | word recall |
+| --- | ---: | ---: |
+| **all starred scored (shipped)** | 1,060 | **38.1%** |
+| drop only `SIM`/`OCC`/`OUT` | 996 | 39.7% |
+| drop all starred | 849 | 43.1% |
+
+So the published number is conservative by about 1.6 points against a defensible fair exam, and
+by 5 against the flattering one. **Do not "fix" the asymmetry by excluding them from scoring
+too** — that would raise the figure without the engine improving, which is the definition of
+moving the goalposts. If anything is ever changed here, drop `SIM`/`OCC`/`OUT` only, and say so
+next to the number.
+
+The `SHO` group is worth reporting separately when the segmenter is under discussion: those are
+exactly the short, heavily co-articulated signs that a minimum-duration floor makes
+*arithmetically* unreachable, per the IoU ≤ L/F bound below.
+
 ### The floor and the gate, settled: 1150/0.50 → 850/0.60
 
 With the classifier fixed, the second finding was re-tested and the trade reversed. Three

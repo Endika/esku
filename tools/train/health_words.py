@@ -57,6 +57,12 @@ def normalize(label: str) -> str:
     LSE-Health writes variants the model does not: a leading `*`, a parenthesised suffix like
     `AFECTAR(s)`, and accents the concept list spells inconsistently. Folding all three is what
     turns 101 gloss labels and 238 concepts into the 51 that genuinely name the same sign.
+
+    The `*` is *stripped*, not filtered, and that is deliberate — training drops those 2,178
+    occurrences and scoring keeps them. It makes this the strictest policy available, because
+    472 of them are `SIM`: the label of a sign that merely looks like the one performed. Drop
+    them here and word recall rises from 38.1% to 43.1% with nothing improved. See "Starred
+    glosses" in README.md before changing this.
     """
     text = re.sub(r"\(.*?\)", "", label.strip().lstrip("*"))
     stripped = unicodedata.normalize("NFD", text)
