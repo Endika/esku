@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.2](https://github.com/Endika/esku/compare/v1.15.1...v1.15.2) (2026-08-26)
+
+
+### Documentation
+
+* say why starred glosses leave training but stay in the score ([bfe212d](https://github.com/Endika/esku/commit/bfe212d1bb755400462794472760262eaa2d4717))
+
 ## [1.15.1](https://github.com/Endika/esku/compare/v1.15.0...v1.15.1) (2026-08-26)
 
 
