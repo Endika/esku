@@ -5,15 +5,16 @@ a sign is; `simulate_app.py` asks whether an isolated dictionary recording class
 asks the product question, and the two disagree about the segmenter floor: lowering it triples
 boundary recall on real signing and costs accuracy on dictionary signs.
 
-That disagreement is what this file exists to settle, and it sweeps the floor and the confidence
-gate *together* on purpose. They are coupled: a lower floor makes shorter windows, a shorter
+That disagreement is what this file exists to settle — it settled at 850 ms, and the curve is in
+`README.md` — and it sweeps the floor and the confidence gate *together* on purpose. They are coupled: a lower floor makes shorter windows, a shorter
 window holds less of the sign, less sign means less confidence, and less confidence dies at the
 gate. Measured apart, each knob looks bad because of the other. Measured together, the cost is
 attributable.
 
-51 of the model's 238 concepts appear among LSE-Health's annotated glosses, covering 6,872 of
-its 15,098 instances, so this is scored against real hand-annotated occurrences of signs the
-model was actually trained to know.
+51 of the then-238 concepts appear among LSE-Health's annotated glosses, covering 6,872 of its
+15,098 instances, so this is scored against real hand-annotated occurrences of signs the model
+was actually trained to know. Those 51 are frozen in `shared_classes.json` and stay the exam
+whatever the model grows to, or every figure would be measured against a different denominator.
 
 Windows are classified once per floor; the grace period and the gate are then swept in memory,
 because they are post-processing over the same scores.

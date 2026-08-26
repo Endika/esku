@@ -32,10 +32,11 @@ FRAME_MS = 1000.0 / DATASET_FPS
 MOTION_RATE = 0.6  # palm widths per second
 DECELERATION_DROP = 0.45
 DECELERATION_HOLD_MS = 50
-#: N frames span N-1 intervals, so the swept counts convert as (n-1)/DATASET_FPS: the 24-frame
-#: floor is 1150 ms, not 1200. Kept exact so this reproduces the pre-conversion numbers and any
-#: drift is a porting mistake rather than a retune.
-MIN_SIGN_MS = 1150
+#: N frames span N-1 intervals, so the swept counts convert as (n-1)/DATASET_FPS: the old
+#: 24-frame floor is 1150 ms, not 1200. Kept exact so this reproduces the pre-conversion
+#: numbers and any drift is a porting mistake rather than a retune. The floor itself is the
+#: exception — re-measured on LSE-Health rather than swept, see `sweep_health.py`.
+MIN_SIGN_MS = 850
 MIN_MS = 150
 MIN_FRAMES = 4
 MAX_MS = 2350

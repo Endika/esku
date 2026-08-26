@@ -137,12 +137,12 @@ class FloorTest(unittest.TestCase):
     """The shortest emittable window, which is never MIN_SIGN_MS itself."""
 
     def test_twenty_five_fps(self) -> None:
-        # 40 ms frames: first span past 1150 is 1160, plus one more frame of deceleration.
-        self.assertAlmostEqual(1200.0, bench.floor_ms(25.0))
+        # 40 ms frames: first span past 850 is 880, plus one more frame of deceleration.
+        self.assertAlmostEqual(920.0, bench.floor_ms(25.0))
 
     def test_twenty_fps(self) -> None:
-        # 50 ms frames: 1150 lands exactly on the grid, and one 50 ms hold satisfies the wait.
-        self.assertAlmostEqual(1150.0, bench.floor_ms(20.0))
+        # 50 ms frames: 850 lands exactly on the grid, and one 50 ms hold satisfies the wait.
+        self.assertAlmostEqual(850.0, bench.floor_ms(20.0))
 
     def test_floor_is_never_below_min_sign_ms(self) -> None:
         for fps in (15.0, 20.0, 24.0, 25.0, 30.0, 50.0, 60.0):
