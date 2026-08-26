@@ -41,15 +41,23 @@ export class RecognizeSignsUseCase {
   private readonly segmenter = new SignSegmenter();
   private readonly frameStabilizer = new CandidateStabilizer();
   /**
-   * 0.50, and the second number is the one that matters — it is a *second* floor, applied
+   * 0.60, and the second number is the one that matters — it is a *second* floor, applied
    * on top of the 0.45 the vocabulary engine already enforces, so it alone decides.
    *
-   * It sat at 0.55 unmeasured. Swept over the continuous benchmark, 0.50 recovers 36.6% of
-   * signs against 33.6% at 0.55 with identical precision (78.5% against 78.4%) — three
-   * points of recall for nothing. Below 0.50 the trade turns real: 0.45 buys another two
-   * points of recall at three points of precision.
+   * It sat at 0.50, swept over the *spliced* continuous benchmark, where precision means
+   * "landed on some sign" — and spliced recordings have no silence in them, so that sweep
+   * could not see the failure that matters: a word written into a pause. Against real
+   * discourse it is visible, and it is bad. A third of the windows falling in gaps between
+   * annotated sentences get a word written, and the gate barely discriminates — 0.30 to 0.80
+   * halves recall while cutting that only from 48% to 21%.
+   *
+   * 0.60 is where lowering `minSignMs` to 850 pays without writing more into pauses than the
+   * old pairing did: +2.3 points of continuous word recall (35.0% → 37.3%, four seeds) with
+   * the pause-babble rate flat at 30%. Buying more recall from this knob means accepting
+   * more of it; the real fix is negatives the model can learn silence from, which this
+   * corpus cannot supply.
    */
-  private readonly windowStabilizer = new CandidateStabilizer(1, 0.5);
+  private readonly windowStabilizer = new CandidateStabilizer(1, 0.6);
   private transcript = new Transcript();
   private listener: RecognitionListener | null = null;
   /** Guards against overlapping async classify calls piling up behind a slow frame. */

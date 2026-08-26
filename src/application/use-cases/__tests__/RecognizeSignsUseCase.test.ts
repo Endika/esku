@@ -205,7 +205,7 @@ describe('RecognizeSignsUseCase', () => {
     });
 
     it('blames the stabiliser when the engine answered and the higher floor rejected it', async () => {
-      // Two floors, and the higher one decides: 0.45 in the engine, 0.50 here. A sign landing
+      // Two floors, and the higher one decides: 0.45 in the engine, 0.60 here. A sign landing
       // between them is recognised and then silently dropped.
       vocabulary.confidence = 0.47;
       const diagnostics = await signOnce();
@@ -213,6 +213,27 @@ describe('RecognizeSignsUseCase', () => {
       expect(diagnostics.wordsEmitted).toBe(0);
       expect(diagnostics.lastVeto).toBe('stabilizer');
       expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.47);
+    });
+
+    // The two below pin the window floor at 0.60. It moved up from 0.50 when `minSignMs` came
+    // down: on real discourse a third of the windows landing in gaps between annotated
+    // sentences got a word written, and 0.60 is what holds that rate flat while the shorter
+    // windows recover more signs. Pinned because nothing else in the suite would notice it
+    // drifting back, and 0.55 is exactly the confidence that used to be written.
+    it('drops a sign just under the window floor', async () => {
+      vocabulary.confidence = 0.55;
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.wordsEmitted).toBe(0);
+      expect(diagnostics.lastVeto).toBe('stabilizer');
+    });
+
+    it('writes a sign just over it', async () => {
+      vocabulary.confidence = 0.65;
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.wordsEmitted).toBe(1);
+      expect(diagnostics.lastVeto).toBeNull();
     });
 
     it('starts a new session from zero rather than carrying the last one over', async () => {

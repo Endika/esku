@@ -34,9 +34,14 @@ export interface SegmenterOptions {
    * Which pressure wins depends on the classifier, and it has changed sides. Against the
    * dictionary-only model, 1150 -> 850 cost 8 points of isolated top-1 to buy 3 of continuous
    * recovery, so the floor stayed high. Re-measured on the co-articulated model over the same
-   * four seeds, that move buys **+6.9 points of continuous word recall** (34.9% -> 41.9%) for
-   * 5.4 of isolated. Shorter windows only pay once the classifier has seen a sign glued to
-   * the sign before it; the two levers multiply.
+   * four seeds, the move buys +6.9 points of continuous word recall at an unchanged gate
+   * (34.9% -> 41.9%) for 5.4 of isolated. Shorter windows only pay once the classifier has
+   * seen a sign glued to the sign before it; the two levers multiply.
+   *
+   * Part of that +6.9 is not recall, though: shorter windows also write more into pauses,
+   * from 31% of the gaps between annotated sentences to 36%. The shipped pairing raises the
+   * window gate to 0.60 to give that back, and banks **+2.3 points at a flat 30%** — see
+   * `RecognizeSignsUseCase`, which holds the other half of this decision.
    */
   readonly minSignMs: number;
   /** Shortest accepted sign; below this it is camera noise, not a sign. */
