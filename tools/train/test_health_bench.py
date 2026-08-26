@@ -19,6 +19,7 @@ import zipfile
 import numpy as np
 
 import health_bench as bench
+import health_words as words
 import simulate_app as sim
 
 
@@ -125,6 +126,38 @@ class AnnotationTest(unittest.TestCase):
         spans = [end - start for v in by_video.values() for start, end, _ in v]
         median, p25, p75, top = bench.percentiles(spans)
         self.assertEqual((440.0, 325.0, 600.0, 2880.0), (median, p25, p75, top))
+
+
+class SilenceTest(unittest.TestCase):
+    """What counts as evidence of *not* signing, which decides every false positive.
+
+    Getting this backwards is the failure that would make the precision figure meaningless:
+    inside an annotated sentence, a window matching no gloss is almost always a real sign
+    nobody labelled — 101 annotated sign types against the 90-150 signs a minute of fluent
+    discourse — so counting it as a false positive would invent errors the signer never made.
+    Only a gap *between* sentences is silence.
+    """
+
+    SENTENCES = [(1000.0, 2000.0), (3000.0, 4000.0)]
+
+    def test_a_window_between_sentences_is_silence(self) -> None:
+        self.assertTrue(words.silent((2200.0, 2800.0), self.SENTENCES))
+
+    def test_a_window_inside_a_sentence_is_not(self) -> None:
+        self.assertFalse(words.silent((1200.0, 1800.0), self.SENTENCES))
+
+    def test_a_window_straddling_a_sentence_edge_is_not(self) -> None:
+        # Half in speech is not silence. Erring this way undercounts false positives, which is
+        # the safe direction: the figure becomes a floor, never a flattering ceiling.
+        self.assertFalse(words.silent((1800.0, 2400.0), self.SENTENCES))
+
+    def test_touching_a_boundary_is_still_silence(self) -> None:
+        # Intervals are half-open; a window that starts exactly where a sentence ends
+        # overlaps it by zero and must not be excluded.
+        self.assertTrue(words.silent((2000.0, 3000.0), self.SENTENCES))
+
+    def test_everything_is_silence_when_nothing_is_annotated(self) -> None:
+        self.assertTrue(words.silent((1200.0, 1800.0), []))
 
 
 class RateTest(unittest.TestCase):

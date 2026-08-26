@@ -32,6 +32,7 @@ import numpy as np
 import torch
 
 import health_bench as hb
+import health_dataset as hd
 import simulate_app as sim
 from train import SignHead
 from vocabulary_features import vocabulary_signature
@@ -40,7 +41,7 @@ MANIFEST = Path("../../public/models/lse-vocabulary.json")
 WEIGHTS = Path("../../public/models/lse-vocabulary.bin")
 SHARED = hb.CACHE.parent / "shared_classes.json"
 
-FLOORS = (1150, 750, 500)
+FLOORS = (1150, 850, 750, 500)
 #: A window closes roughly one window-length after the previous one, so a grace shorter than
 #: the window can never group anything — 600 ms grouped exactly nothing at a 1200 ms window,
 #: which is how this range was chosen rather than guessed.
@@ -160,6 +161,22 @@ def score_windows(model, path: Path, floor: int) -> tuple[list[tuple], float, fl
     return scored, frames * frame_ms, fps
 
 
+def silent(span: tuple[float, float], sentences: list[tuple[float, float]]) -> bool:
+    """True when a window sits in a gap between annotated sentences, and so in real silence.
+
+    This is the whole basis of the false-positive column, and the asymmetry matters. *Inside*
+    a sentence, a window matching no gloss is usually a real sign nobody labelled — only 101
+    sign types are annotated, about 24 glosses a minute against the 90-150 of fluent discourse
+    — so counting it as an error would invent mistakes the signer never made. Between
+    sentences there is nothing to sign, and anything written there is wrong.
+
+    A window straddling a boundary counts as speech, not silence. That undercounts false
+    positives, which is the safe direction: the figure is a floor, never a flattering ceiling.
+    """
+    start, end = span
+    return not any(start < s_end and end > s_start for s_start, s_end in sentences)
+
+
 def arbitrate(scored: list[tuple], grace_ms: float, gate: float) -> list[tuple]:
     """Hold the first candidate, let windows closing within `grace_ms` compete, emit the best.
 
@@ -232,9 +249,11 @@ def main() -> None:
     print(f"   instancias puntuables           : {instances}")
     print()
 
+    sentences = hd.sentence_spans()
     header = (
         f"{'suelo':>6} {'espera':>7} {'puerta':>7} {'recall palabra':>15} "
-        f"{'pal/min':>8} {'glosa/min':>10} {'muertas en puerta':>18}"
+        f"{'pal/min':>8} {'glosa/min':>10} {'muertas en puerta':>18} "
+        f"{'falsos/silencio':>16}"
     )
     print(header)
     print("   " + "-" * (len(header) - 3))
@@ -249,13 +268,25 @@ def main() -> None:
                 cached[path.stem] = scored
                 minutes += duration_ms / 60000.0
             total_windows = sum(len(v) for v in cached.values())
+            quiet = {
+                name: {
+                    (start, end)
+                    for *_, start, end in scored
+                    if silent((start, end), sentences.get(name, []))
+                }
+                for name, scored in cached.items()
+            }
+            quiet_windows = sum(len(v) for v in quiet.values())
 
             for grace in GRACES:
                 for gate in GATES:
-                    recovered = words = 0
+                    recovered = words = spoken_in_silence = 0
                     for name, scored in cached.items():
                         emitted = arbitrate(scored, grace, gate)
                         words += len(emitted)
+                        spoken_in_silence += sum(
+                            (start, end) in quiet[name] for *_, start, end in emitted
+                        )
                         claimed = set()
                         for _, concept, _, start, end in emitted:
                             said = predicted_key[concept]
@@ -268,10 +299,11 @@ def main() -> None:
                                     break
                     dead = total_windows - words
                     dead_text = f"{dead}/{total_windows}"
+                    false_text = f"{spoken_in_silence}/{quiet_windows}"
                     print(
                         f"{floor:>6} {grace:>7} {gate:>7.2f} "
                         f"{recovered / instances * 100:>14.1f}% {words / minutes:>8.1f} "
-                        f"{instances / minutes:>10.1f} {dead_text:>18}"
+                        f"{instances / minutes:>10.1f} {dead_text:>18} {false_text:>16}"
                     )
             print()
     finally:
@@ -280,6 +312,9 @@ def main() -> None:
     print("recall palabra = instancias de las 51 clases con una palabra emitida del concepto")
     print("correcto que solapa temporalmente la glosa anotada, contada una vez por instancia.")
     print("La glosa/min es el techo teorico solo de estas 51 clases, no de todo lo que se signa.")
+    print("falsos/silencio = palabras escritas en huecos entre frases anotadas, sobre las")
+    print("ventanas que caen ahi. Es una cota inferior: dentro de una frase no hay forma de")
+    print("distinguir un falso positivo de un signo real que nadie anoto.")
 
 
 if __name__ == "__main__":

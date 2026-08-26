@@ -148,43 +148,63 @@ Two findings from it worth not rediscovering:
   only ever seen dictionary recordings. Fixing the classifier first is what makes the boundary
   work pay — the two levers multiply.
 
-### The floor, settled: 1150 → 850
+### The floor and the gate, settled: 1150/0.50 → 850/0.60
 
-With the classifier fixed, the second finding was re-tested and the trade reversed. Both columns
-below are the same knob at `gate 0.50`, `grace 0` — the app's own `CandidateStabilizer(1, 0.5)` —
-scored on the four held-out signers, 1,060 annotated instances of the 51 frozen classes, against
-the shipped model. Isolated is the `app segmenter` row of `simulate_app.py`, 598 SWL-LSE samples.
+With the classifier fixed, the second finding was re-tested and the trade reversed. Three
+columns, because two of them alone would pick the wrong config. Continuous recall and pause
+babble come from `health_words.py` on the four held-out signers — 1,060 annotated instances of
+the 51 frozen classes, and 211 windows landing in gaps between annotated sentences. Isolated is
+the `app segmenter` row of `simulate_app.py`, 598 SWL-LSE samples, shipped model.
 
-| `MIN_SIGN_MS` | continuous word recall | isolated top-1 |
-| ---: | ---: | ---: |
-| 1150 | 33.2% | 65.3% |
-| 1000 | 36.4% | 62.4% |
-| 900 | 38.7% | 60.9% |
-| **850** | **41.8%** | **59.9%** |
-| 800 | 43.1% | 57.1% |
-| 750 | 46.2% | 55.6% |
-| 500 | 53.0% | 44.4% |
+| `MIN_SIGN_MS` | gate | continuous recall | words written into pauses | isolated top-1 |
+| ---: | ---: | ---: | ---: | ---: |
+| 1150 | 0.50 | 33.2% | 27.3% | 65.3% |
+| 1000 | 0.50 | 36.4% | — | 62.4% |
+| 900 | 0.50 | 38.7% | — | 60.9% |
+| **850** | **0.60** | **38.1%** | **27.5%** | **59.9%** |
+| 850 | 0.50 | 41.8% | 33.6% | 59.9% |
+| 800 | 0.50 | 43.1% | — | 57.1% |
+| 750 | 0.60 | 42.2% | 26.7% | 55.6% |
+| 750 | 0.50 | 46.2% | — | 55.6% |
+| 500 | 0.70 | 42.4% | 23.2% | 44.4% |
+| 500 | 0.50 | 53.0% | — | 44.4% |
 
-The trade stays favourable down to 750 and inverts by 500. 850 has the best ratio, +8.6 for −5.4,
-and it is the value the pre-retrain comment in `SignSegmenter.ts` had explicitly rejected at −8
-for +3 — the same decision, measured against a classifier that has seen co-articulation, comes
-out the other way. Re-run over all four seeds of the shipped variant, the two ends read **34.9%
-(sd 1.2)** and **41.9% (sd 0.9)**: +6.9 points, same direction in every seed.
+Three findings, and only the first was expected:
 
-Two knobs that did *not* move:
+- **Lowering the floor is not paid for in false positives.** Hold the babble rate at ~27% and
+  recall still climbs as the floor drops: 33.2% at 1150, 38.1% at 850, 42.2% at 750. The high
+  floor was not buying silence, it was losing signs. 850 is where the ratio is best, +8.6 for
+  −5.4 of isolated, and it is the value the pre-retrain comment in `SignSegmenter.ts` had
+  explicitly rejected at −8 for +3 — the same decision against a classifier that has seen
+  co-articulation comes out the other way.
+- **The gate is a poor discriminator, which is the real ceiling.** From 0.30 to 0.80 recall
+  halves (49.6% → 24.3%) while babble falls only from 48% to 21%. Even at the strictest gate
+  **one pause in five gets a word written**. Confidence does not separate signing from not
+  signing, because the model has never been shown what not-signing looks like — the negatives
+  `health_dataset.py` cannot build from this corpus are the same ones missing here.
+- **Read the seed, not the run.** Scored on the shipped weights alone the change looks like
+  +4.9; over all four seeds of that variant it is +2.3, because seed 29 is the worst at 1150
+  and among the best at 850. The four-seed figures for the two shipped pairings:
 
-- **The grace period buys nothing.** 0 and 600 ms are bit-identical at every floor, because a
-  window is longer than the grace and so nothing ever groups; 1500 and 2500 lose 8-10 points.
-- **The gate stays at 0.50.** Lower reads better here — 55.1% at 0.30 with the 750 floor — but
-  `health_words.py` counts recall per instance and never counts a wrong word, so it cannot price
-  a looser gate. Moving it needs a precision measurement this bench does not make.
+  | pairing | continuous recall | words written into pauses |
+  | --- | ---: | ---: |
+  | 1150 / 0.50 (before) | 35.0% (sd 1.2) | 30.6% (sd 2.5) |
+  | 850 / 0.60 (now) | 37.3% (sd 0.9) | 30.0% (sd 2.4) |
 
-`health_dataset.py` deliberately cannot build a useful reject class from this corpus. "Overlaps no
-gloss" is not evidence of silence — only 101 sign types are annotated, about 24 glosses a minute
-against the 90-150 signs a minute of fluent discourse, so such a window is usually a real sign
-nobody labelled. The honest source is the gap between annotated *sentence* segments, and those
-cover 9.6 of the 10.8 hours, so there is almost nothing there. Teaching the model to stay quiet
-needs negatives from somewhere else.
+  +2.3 points of recall at a flat babble rate, about three standard errors. Modest, and the
+  only pairing on the grid that improves one axis without giving back the other.
+
+The grace period buys nothing and is not shipped: 0 and 600 ms are bit-identical at every
+floor, because a window is longer than the grace and nothing ever groups; 1500 and 2500 lose
+8-10 points.
+
+**What the false-positive column can and cannot see.** Only a gap *between* annotated sentences
+counts as silence. Inside a sentence, a window matching no gloss is usually a real sign nobody
+labelled — 101 annotated sign types against the 90-150 signs a minute of fluent discourse — so
+it cannot be called an error. A window straddling a boundary counts as speech. Both choices
+undercount, deliberately: the figure is a floor on the babble, never a flattering ceiling. And
+n is 211, so each rate carries about ±6 points; the trend across gates is monotone and solid,
+neighbouring pairs are not separable.
 
 ### Checking against a second corpus
 
