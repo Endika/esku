@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.4](https://github.com/Endika/esku/compare/v1.14.3...v1.14.4) (2026-08-26)
+
+
+### Bug Fixes
+
+* lower the window floor, which the coarticulated model turned into a gain ([bd4974f](https://github.com/Endika/esku/commit/bd4974f79d8591e39b29b80829110161f9c0204d))
+* raise the window gate, since shorter windows also write into pauses ([3aef209](https://github.com/Endika/esku/commit/3aef209e084eaa93af678f0824b125977d2f9bf3))
+
 ## [1.14.3](https://github.com/Endika/esku/compare/v1.14.2...v1.14.3) (2026-08-21)
 
 
