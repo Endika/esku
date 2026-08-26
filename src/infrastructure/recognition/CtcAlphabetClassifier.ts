@@ -22,6 +22,20 @@ export interface AlphabetManifest {
 
 const MAX_CANDIDATES = 3;
 
+/**
+ * Letters the model attempts but gets wrong more often than right.
+ *
+ * Measured on LSE-FS-UVigo's held-out signers, recall per letter: J 5%, W 20%, Y 22%, Ñ 25%,
+ * Q 27%, Z 29%. The cause is visible in the training set rather than in the handshapes —
+ * K appears 16 times in 19k characters, W 23, Ñ 28, Y 45, Q 46. Six letters, and Spanish
+ * spells around them most of the time, but a user deserves to know which ones to distrust
+ * rather than discovering it a word at a time.
+ *
+ * This is a *measurement*, so it is only true of the weights currently shipped. Retrain and
+ * re-derive it from block 7 of `tools/bench/alphabet.bench.ts`.
+ */
+export const WEAK_LETTERS = ['j', 'w', 'y', 'ñ', 'q', 'z'];
+
 export class AlphabetLayoutMismatchError extends Error {
   constructor(declared: number, expected: number) {
     super(`The alphabet model expects ${declared} inputs per frame, the app builds ${expected}`);
@@ -151,6 +165,11 @@ export class CtcAlphabetClassifier implements ISignClassifier {
       text: i === manifest.blank ? 'blank' : (manifest.letters[i - 1] ?? '?'),
       confidence,
     })).sort((a, b) => b.confidence - a.confidence);
+
+    // Blank winning is an answer, not an absence of one: the model is saying this frame is
+    // between letters. Offering the runner-up here would throw away the one thing a trained
+    // abstention buys over a handshape table.
+    if (this.#scores[0]?.text === 'blank') return [];
 
     return this.#scores
       .filter((score) => score.text !== 'blank')

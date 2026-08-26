@@ -1,6 +1,6 @@
 import { Container } from '@bootstrap/Container';
 import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
-import { UNSUPPORTED_LETTERS } from '@infrastructure/recognition/packs/lseAlphabet';
+import { WEAK_LETTERS } from '@infrastructure/recognition/CtcAlphabetClassifier';
 import { DiagnosticsPanel } from '@presentation/components/DiagnosticsPanel';
 import {
   LandmarkOverlay,
@@ -108,8 +108,9 @@ export function renderApp(root: HTMLElement): void {
         </p>
         <p class="card__body" style="margin-top: 10px">
           <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
-          vocabulario. Todavía no distingue <strong>${UNSUPPORTED_LETTERS.join(', ')}</strong>:
-          unas se trazan con movimiento y otras dependen de la orientación de la palma.
+          vocabulario. Intenta las 27 letras y acierta unas mejor que otras: desconfía de
+          <strong>${WEAK_LETTERS.join(', ')}</strong>, que salen bien menos de una de cada tres
+          veces porque apenas aparecen en el corpus con el que se entrenó.
         </p>
       </div>
     </details>

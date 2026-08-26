@@ -51,6 +51,23 @@ As with SWL-LSE, no video and no landmark file is redistributed here. That matte
 corpus: the recordings are of identifiable Deaf signers, and its sibling corpus LSE_Lex40 was
 never published because the university's data protection assessment did not clear it.
 
+## LSE-FS-UVigo (fingerspelling weights)
+
+`public/models/lse-alphabet.*` is trained on this corpus and **only** on this corpus, which is
+why it is CC BY 4.0 and the vocabulary model is not. See
+[`public/models/LICENSE.md`](public/models/LICENSE.md).
+
+- Source: <https://zenodo.org/records/15797079>, DOI `10.5281/zenodo.15797079`
+- Licence: **CC BY 4.0** — attribution, no commercial restriction
+- Authors: Ruanova Lea, Jose Luis; Alba-Castro, Jose L.; Docio-Fernandez, Laura;
+  Pérez Pérez, Ania; Longa Alonso, Beatriz
+- Paper: DOI `10.1109/ACCESS.2025.3631400`
+- Reference code: <https://github.com/lruanova/LSE-FS-UVigo-train>
+
+3,044 sequences of continuous fingerspelling, labelled by the spelled word with no per-letter
+timings — which is why the model is trained with CTC. As with the other corpora, no video and no
+landmark file is redistributed here; only derived weights.
+
 ## MediaPipe Tasks (hand and pose landmarks)
 
 Landmark extraction uses Google's MediaPipe Tasks Vision bundles, vendored into
@@ -72,8 +89,10 @@ weights or assets are vendored here, so Esku stays MIT-licensable.
 
 **LSE_Lex40_UVIGO** is not used, and cannot be: UVigo never published it, because their data
 protection officer did not find sufficient guarantees under GDPR. The group pointed us at
-LSE-Health-UVigo, LSE-FS-UVigo and LSE-METI-UVigo instead.
+LSE-Health-UVigo, LSE-FS-UVigo and LSE-METI-UVigo instead; the first two are now both in use.
 
 **LSE-METI-UVigo** (<https://zenodo.org/records/20035734>) is not used yet. ~5,000 continuous
-sentences with gloss sequences and no temporal alignment, so it needs CTC-style training rather
-than this architecture. Also CC-BY-NC-4.0.
+sentences with gloss sequences and no temporal alignment. That was recorded here as needing
+"CTC-style training rather than this architecture" — and the fingerspelling head above is now
+exactly that, so the blocker is no longer architectural. It remains CC-BY-NC-4.0, so weights
+derived from it would inherit the vocabulary model's commercial restriction.
