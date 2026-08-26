@@ -20,6 +20,37 @@ curl -L -o data/ANNOTATIONS.zip \
 
 `data/` is gitignored. Nothing from the dataset is committed — only weights derived from it.
 
+### Re-downloading, so deleting is reversible
+
+`data/uvigo/` holds ~18.6 GB of corpus archives. They are safe to delete when disk is tight,
+but only because this table exists: without it, "safe to delete" means "safe to lose", and
+finding the right Zenodo record again is the part nobody remembers.
+
+| file | GB | record | needed for |
+| --- | ---: | --- | --- |
+| `RAW_KPS.zip` | 6.9 | [`10.5281/zenodo.15797079`][fs] | `lsefs_dataset.py` — the fingerspelling model |
+| `PROC_KPS.zip` | 6.9 | [`10.5281/zenodo.15797079`][fs] | nothing in the pipeline; see below |
+| `Videos-LSE-Health-UVigo.zip` | 4.8 | [`10.5281/zenodo.10234465`][h] | `health_extract.py` only — the landmark cache it builds already exists |
+| `10234465_ELAN-…zip`, `.xlsx` | 0.002 | [`10.5281/zenodo.10234465`][h] | the annotations every LSE-Health bench reads |
+
+[fs]: https://doi.org/10.5281/zenodo.15797079
+[h]: https://doi.org/10.5281/zenodo.10234465
+
+Everything under `data/uvigo/*.npz` and `*.ndjson` is derived and regenerates in minutes; delete
+those freely.
+
+**`PROC_KPS.zip` is not what it looks like.** It holds the same keypoints "preprocessed" —
+wrist-centred and scaled — and the obvious question is whether their preprocessing beats ours.
+Checked, and it does not: on the same frame their vectors correlate **1.0000** with
+`normalize_hand`'s, differing only by a constant scale factor, which the first layer of any
+network absorbs. There is nothing to gain and no experiment to run.
+
+What it does carry that `RAW_KPS.zip` does not is the corpus's own **`handness`** label, and
+that is worth keeping it for. Our dominant-hand rule picks the larger bounding box; audited
+against those labels over 200 train sequences and 31,959 frames it agrees **96.8%** of the time
+and takes the wrong hand in **3.2%**. Whether that matters is not yet measured, but it is the
+only ground truth available for a rule the app has to apply live.
+
 ## Two rules that will silently ruin the model if broken
 
 1. **Normalisation must match `src/domain/landmarks/services/normalizeHand.ts` exactly** —
