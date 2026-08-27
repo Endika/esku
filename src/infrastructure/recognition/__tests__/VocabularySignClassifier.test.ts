@@ -211,8 +211,10 @@ describe('VocabularySignClassifier', () => {
       await engine.load();
 
       const candidates = await engine.classify(oneWindow());
+      const offered = candidates.map((candidate) => candidate.gloss.id);
 
-      expect(candidates.map((candidate) => candidate.gloss.id)).toEqual(['DOLOR']);
+      expect(offered).not.toContain('__NADA__');
+      expect(offered).toEqual(['DOLOR', 'CABEZA']);
       expect(engine.lastAbstained).toBe(false);
     });
 

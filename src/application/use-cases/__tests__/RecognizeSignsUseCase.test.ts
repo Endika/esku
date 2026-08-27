@@ -68,7 +68,7 @@ class CountingWindowClassifier implements ISignClassifier {
   calls = 0;
   confidence = 0.9;
   /** Below this the real engine returns nothing at all, keeping only the raw score. */
-  floor = 0.45;
+  floor = 0.3;
   /** The model's own "nobody is signing" class winning: empty, but not a near miss. */
   abstain = false;
   lastAbstained = false;
@@ -226,23 +226,24 @@ describe('RecognizeSignsUseCase', () => {
     });
 
     it('blames the stabiliser when the engine answered and the higher floor rejected it', async () => {
-      // Two floors, and the higher one decides: 0.45 in the engine, 0.60 here. A sign landing
+      // Two floors, and the higher one decides: 0.30 in the engine, 0.45 here. A sign landing
       // between them is recognised and then silently dropped.
-      vocabulary.confidence = 0.47;
+      vocabulary.confidence = 0.35;
       const diagnostics = await signOnce();
 
       expect(diagnostics.wordsEmitted).toBe(0);
       expect(diagnostics.lastVeto).toBe('stabilizer');
-      expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.47);
+      expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.35);
     });
 
-    // The two below pin the window floor at 0.60. It moved up from 0.50 when `minSignMs` came
-    // down: on real discourse a third of the windows landing in gaps between annotated
-    // sentences got a word written, and 0.60 is what holds that rate flat while the shorter
-    // windows recover more signs. Pinned because nothing else in the suite would notice it
-    // drifting back, and 0.55 is exactly the confidence that used to be written.
+    // The two below pin the window floor at 0.45. It came down from 0.60 once the model's own
+    // abstention stopped being written as a word: over half the words this app wrote into
+    // pauses were the `__NADA__` class itself, so honouring it took pause babble from 30.0%
+    // to 13.3% and paid for a lower gate. 0.45 buys 37.3% → 44.2% of signs written correctly
+    // on continuous signing, all four seeds gaining, at 19.9% babble. Pinned because nothing
+    // else in the suite would notice it drifting, in either direction.
     it('drops a sign just under the window floor', async () => {
-      vocabulary.confidence = 0.55;
+      vocabulary.confidence = 0.44;
       const diagnostics = await signOnce();
 
       expect(diagnostics.wordsEmitted).toBe(0);
@@ -250,7 +251,7 @@ describe('RecognizeSignsUseCase', () => {
     });
 
     it('writes a sign just over it', async () => {
-      vocabulary.confidence = 0.65;
+      vocabulary.confidence = 0.46;
       const diagnostics = await signOnce();
 
       expect(diagnostics.wordsEmitted).toBe(1);
