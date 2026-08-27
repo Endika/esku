@@ -90,6 +90,12 @@ WEIGHT_ORDER = [
 
 DEFAULT_SOURCE = "SWL-LSE (CC-BY-4.0), doi:10.5281/zenodo.13691887"
 
+#: The class that means "nobody is signing right now", trained from the gaps between
+#: LSE-Health's annotated sentences. Defined here and *declared in the manifest* so the browser
+#: reads it off the model instead of hardcoding the string: a copy in TypeScript is the same
+#: two-places-must-agree bug this project already hit with handedness and normalisation.
+ABSTENTION_LABEL = "__NADA__"
+
 
 def export_weights(
     model: nn.Module,
@@ -119,6 +125,7 @@ def export_weights(
         json.dumps(
             {
                 "concepts": concepts,
+                "abstentionConcept": ABSTENTION_LABEL if ABSTENTION_LABEL in concepts else None,
                 "signatureLength": SIGNATURE_LENGTH,
                 "frames": SIGNATURE_FRAMES,
                 "hidden": model.gru.hidden_size,

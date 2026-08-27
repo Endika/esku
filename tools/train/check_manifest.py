@@ -63,6 +63,18 @@ def failures() -> list[str]:
     if len(set(manifest["concepts"])) != len(manifest["concepts"]):
         problems.append("hay conceptos repetidos en el manifest")
 
+    # `__NADA__` is not a sign, it is the model saying nobody is signing. The browser has to read
+    # that class off the manifest instead of hardcoding the string, so any reserved concept that
+    # goes undeclared here is one the app would happily write into someone's transcript.
+    abstention = manifest.get("abstentionConcept")
+    if "abstentionConcept" not in manifest:
+        problems.append("el manifest no declara `abstentionConcept` (usa null si no hay clase)")
+    if abstention is not None and abstention not in manifest["concepts"]:
+        problems.append(f"declara la abstencion {abstention} y no esta en `concepts`")
+    undeclared = [c for c in manifest["concepts"] if c.startswith("__") and c != abstention]
+    if undeclared:
+        problems.append(f"conceptos reservados sin declarar como abstencion: {undeclared}")
+
     # The browser feeds the parity fixture straight into the network, so its input has to be
     # exactly one signature long or the TypeScript port is being checked against nothing.
     if FIXTURE.is_file():
@@ -82,10 +94,11 @@ def failures() -> list[str]:
 
     # The About panel states the vocabulary size in prose, and it is rendered before the manifest
     # loads, so it cannot read the real number. Shipping 287 concepts left it saying 238 — wrong
-    # on the screen people actually read. Cheaper to fail here than to notice months later.
+    # on the screen people actually read. Cheaper to fail here than to notice months later. The
+    # abstention is subtracted: 287 classes are 286 signs plus one "nobody is signing".
     copy = COPY.read_text() if COPY.is_file() else ""
     claimed = {int(n) for n in re.findall(r"\b(\d{2,4}) signos\b", copy)}
-    expected = len(manifest["concepts"])
+    expected = len(manifest["concepts"]) - (abstention is not None)
     wrong = sorted(n for n in claimed if n != expected)
     if wrong:
         problems.append(
