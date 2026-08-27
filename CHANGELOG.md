@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.16.0](https://github.com/Endika/esku/compare/v1.15.2...v1.16.0) (2026-08-27)
+
+
+### Features
+
+* let the model declare which class means nobody is signing ([c56a96b](https://github.com/Endika/esku/commit/c56a96b714af006d7b486c7dfe018472dbec6228))
+* spend the room the abstention freed on recall, gate 0.60 to 0.45 ([906292b](https://github.com/Endika/esku/commit/906292b81a3c13436816a7279cb8300fef98dac4))
+
+
+### Bug Fixes
+
+* stop writing the model's own silence class as if it were a word ([16f3187](https://github.com/Endika/esku/commit/16f3187b536ff9a6b5b9afa54cca6e2db2f85ed8))
+
+
+### Documentation
+
+* correct the pause-babble figure and say why the gate could come down ([ce7625e](https://github.com/Endika/esku/commit/ce7625eab0171b821fcafb16dc40945775420d1c))
+* say that one of the 287 classes is not a sign ([bf4a35c](https://github.com/Endika/esku/commit/bf4a35c099b9351d7bfe8c9e45078a71ff3fa361))
+
 ## [1.15.2](https://github.com/Endika/esku/compare/v1.15.1...v1.15.2) (2026-08-26)
 
 
