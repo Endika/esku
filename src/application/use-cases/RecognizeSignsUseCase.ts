@@ -255,17 +255,24 @@ export class RecognizeSignsUseCase {
   /**
    * Which floor rejected a completed sign.
    *
-   * An empty `classify` means the engine's own floor took it; a candidate that survived
-   * that and still produced no word was stopped by the stabiliser's — a different, higher
-   * number. Anything else is the already-emitted latch.
+   * An empty `classify` means the engine's own floor took it — unless the engine abstained,
+   * which is the model answering "nobody is signing" and not a near miss. A candidate that
+   * survived the floor and still produced no word was stopped by the stabiliser's, a different
+   * and higher number. Anything else is the already-emitted latch.
    */
   private attributeVeto(
     top: SignCandidate | null,
     emitted: SignCandidate | null,
   ): WindowVeto | null {
     if (emitted) return null;
-    if (!top) return 'classifier';
+    if (!top) return this.windowAbstained() ? 'abstention' : 'classifier';
     return top.confidence < this.windowStabilizer.threshold ? 'stabilizer' : 'duplicate';
+  }
+
+  private windowAbstained(): boolean {
+    return this.classifiers.some(
+      (engine) => engine.granularity === 'window' && engine.lastAbstained === true,
+    );
   }
 
   private collectRawScores(): readonly RawScore[] {

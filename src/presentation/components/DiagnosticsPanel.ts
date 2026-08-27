@@ -25,6 +25,7 @@ const VETO_LABELS: Record<WindowVeto, string> = {
   classifier: 'el modelo: ninguna opción llegó a su mínimo',
   stabilizer: 'el estabilizador: el modelo respondió pero se quedó corto',
   duplicate: 'repetido: mismo signo que el anterior',
+  abstention: 'el modelo: nadie está signando',
 };
 
 function frameCostLabel(cost: FrameCost | null): string {

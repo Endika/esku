@@ -20,9 +20,10 @@ export interface RawScore {
  *
  * `classifier` means every concept scored below the engine's own floor. `stabilizer` means
  * the engine did answer and the stabiliser's higher floor rejected it — the two floors are
- * different numbers, which is exactly the confusion this distinguishes.
+ * different numbers, which is exactly the confusion this distinguishes. `abstention` is not a
+ * floor at all: the model's own "nobody is signing" class won, which is an answer, not a miss.
  */
-export type WindowVeto = 'classifier' | 'stabilizer' | 'duplicate';
+export type WindowVeto = 'classifier' | 'stabilizer' | 'duplicate' | 'abstention';
 
 export interface SignatureBlock {
   /** 0..1 of the 16 sampled frames where this part contributed nothing at all. */

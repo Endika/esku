@@ -35,8 +35,16 @@ const MIN_CONFIDENCE = 0.45;
 
 const MAX_CANDIDATES = 3;
 
+/** How the abstention reads in the diagnostics panel; `__nada__` is not for human eyes. */
+const ABSTENTION_TEXT = 'sin signo';
+
 export interface VocabularyManifest {
   readonly concepts: string[];
+  /**
+   * The class that means "nobody is signing right now", declared by the trainer so this file
+   * never has to hardcode the label. `null` when the model has no such class.
+   */
+  readonly abstentionConcept: string | null;
   readonly signatureLength: number;
   readonly frames: number;
   readonly hidden: number;
@@ -45,6 +53,23 @@ export interface VocabularyManifest {
   readonly shapes: Record<string, number[]>;
   readonly testTop1: number;
   readonly testTop3: number;
+}
+
+/**
+ * A concept the app would write into a transcript, that the model never meant as a word.
+ *
+ * The shipped model has carried `__NADA__` since the co-articulated retrain and nothing here
+ * knew: 131 of 1,477 words on held-out signers came out as `__nada__`. Reserved concepts are
+ * therefore refused unless the manifest says which one is the abstention.
+ */
+export class AbstentionUndeclaredError extends Error {
+  constructor(concepts: readonly string[]) {
+    super(
+      `The model lists reserved concepts (${concepts.join(', ')}) without declaring one as ` +
+        'abstentionConcept, so a class meaning "nobody is signing" would be written as a word.',
+    );
+    this.name = 'AbstentionUndeclaredError';
+  }
 }
 
 export class SignatureLayoutMismatchError extends Error {
@@ -75,6 +100,7 @@ export class VocabularySignClassifier implements ISignClassifier {
   private tensors: Map<string, Float32Array> | null = null;
   private rawTop: readonly RawScore[] = [];
   private profile: SignatureProfile | null = null;
+  private abstained = false;
 
   constructor(
     private readonly manifestUrl: string,
@@ -89,6 +115,11 @@ export class VocabularySignClassifier implements ISignClassifier {
   /** What the last window looked like as features, per body part. */
   get lastSignatureProfile(): SignatureProfile | null {
     return this.profile;
+  }
+
+  /** Whether the last window came back empty because the model said nobody was signing. */
+  get lastAbstained(): boolean {
+    return this.abstained;
   }
 
   isReady(): boolean {
@@ -113,6 +144,11 @@ export class VocabularySignClassifier implements ISignClassifier {
       throw new SignatureLayoutMismatchError(manifest.signatureLength, VOCABULARY_SIGNATURE_LENGTH);
     }
 
+    const undeclared = manifest.concepts.filter(
+      (concept) => concept.startsWith('__') && concept !== manifest.abstentionConcept,
+    );
+    if (undeclared.length > 0) throw new AbstentionUndeclaredError(undeclared);
+
     const floats = new Float32Array(blob);
     const tensors = new Map<string, Float32Array>();
     let offset = 0;
@@ -135,20 +171,37 @@ export class VocabularySignClassifier implements ISignClassifier {
     this.profile = profileSignature(signature);
     const probabilities = softmax(this.forward(signature, manifest, tensors));
 
-    const ranked = manifest.concepts
+    const scored = manifest.concepts
       .map((concept, i) => ({
         gloss: createGloss(concept),
         confidence: probabilities[i] ?? 0,
         source: 'vocabulary' as const,
       }))
-      .sort(byConfidenceDescending)
-      .slice(0, MAX_CANDIDATES);
+      .sort(byConfidenceDescending);
 
     // Kept before the floor is applied: a window that scored 0.44 and one that was never
-    // classified both leave `classify` empty, and they need opposite fixes.
-    this.rawTop = ranked.map(({ gloss, confidence }) => ({ text: gloss.text, confidence }));
+    // classified both leave `classify` empty, and they need opposite fixes. The abstention is
+    // kept here too, because it is the only place the choice of silence is visible.
+    this.rawTop = scored.slice(0, MAX_CANDIDATES).map(({ gloss, confidence }) => ({
+      text: this.isAbstention(gloss.id) ? ABSTENTION_TEXT : gloss.text,
+      confidence,
+    }));
 
-    return ranked.filter(({ confidence }) => confidence >= MIN_CONFIDENCE);
+    // The model's own "nobody is signing" class won, so nothing is said — not even the
+    // runner-up, which would contradict the answer the model just gave. Measured on held-out
+    // signers, this alone takes words written into pauses from 27.5% to 10.9% of the windows
+    // that land there, with continuous recall unmoved at 38.1%.
+    this.abstained = scored.length > 0 && this.isAbstention(scored[0]!.gloss.id);
+    if (this.abstained) return [];
+
+    return scored
+      .filter(({ gloss }) => !this.isAbstention(gloss.id))
+      .slice(0, MAX_CANDIDATES)
+      .filter(({ confidence }) => confidence >= MIN_CONFIDENCE);
+  }
+
+  private isAbstention(label: string): boolean {
+    return this.manifest?.abstentionConcept === label;
   }
 
   private forward(

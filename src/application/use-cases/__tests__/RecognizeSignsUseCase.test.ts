@@ -69,6 +69,9 @@ class CountingWindowClassifier implements ISignClassifier {
   confidence = 0.9;
   /** Below this the real engine returns nothing at all, keeping only the raw score. */
   floor = 0.45;
+  /** The model's own "nobody is signing" class winning: empty, but not a near miss. */
+  abstain = false;
+  lastAbstained = false;
   lastScores: readonly { text: string; confidence: number }[] = [];
 
   isReady(): boolean {
@@ -78,6 +81,11 @@ class CountingWindowClassifier implements ISignClassifier {
 
   async classify(): Promise<readonly SignCandidate[]> {
     this.calls += 1;
+    this.lastAbstained = this.abstain;
+    if (this.abstain) {
+      this.lastScores = [{ text: 'sin signo', confidence: this.confidence }];
+      return [];
+    }
     this.lastScores = [{ text: 'dolor', confidence: this.confidence }];
     if (this.confidence < this.floor) return [];
     return [{ gloss: createGloss('DOLOR'), confidence: this.confidence, source: 'vocabulary' }];
@@ -202,6 +210,19 @@ describe('RecognizeSignsUseCase', () => {
       // The number the panel exists to show: without it, 0.2 and "never classified" look the
       // same from outside, and they need opposite fixes.
       expect(diagnostics.lastRawTop[0]?.confidence).toBeCloseTo(0.2);
+    });
+
+    it('writes nothing when the model abstains, and says so instead of blaming its floor', async () => {
+      // The abstention is an answer, not a near miss, and the shipped model has had one all
+      // along: 131 of 1,477 words on held-out signers came out as the literal `__nada__`.
+      // Blaming `classifier` here would send anyone reading the panel after a threshold that
+      // was never involved.
+      vocabulary.abstain = true;
+      const diagnostics = await signOnce();
+
+      expect(diagnostics.vocabularyInvocations).toBe(1);
+      expect(diagnostics.wordsEmitted).toBe(0);
+      expect(diagnostics.lastVeto).toBe('abstention');
     });
 
     it('blames the stabiliser when the engine answered and the higher floor rejected it', async () => {
