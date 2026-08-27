@@ -15,7 +15,7 @@ Three engines answer through one port, so the app does not care which one produc
 | Engine | What it reads | Where it comes from |
 | --- | --- | --- |
 | **Alphabet** | Fingerspelled letters (dactilológico). All 27 letters, seven of them unreliable. | GRU trained with CTC on LSE-FS-UVigo, 0.71 MB. On real continuous fingerspelling it writes **94% of the letters** and gets **90% of those right**; **126 of 456** words come out spelled exactly. |
-| **Vocabulary** | Whole LSE signs, one word each. | GRU over 287 concepts, trained on SWL-LSE and LSE-Health-UVigo. **70% top-1** sign by sign, **60%** through the app's own segmenter; **37%** written correctly signing continuously. |
+| **Vocabulary** | Whole LSE signs, one word each. | GRU over 286 concepts plus a trained "nobody is signing", on SWL-LSE and LSE-Health-UVigo. **70% top-1** sign by sign, **60%** through the app's own segmenter; **44%** written correctly signing continuously. |
 | **Taught** | Any sign you record yourself, in any sign language. | Nearest-prototype match over 3+ recordings, stored in IndexedDB on your device. Working now. |
 
 ### What it does not do
@@ -36,18 +36,25 @@ signs — against a 0.4% random baseline over 287 classes. That is the model sco
 recording. Fed the same samples the way the app actually cuts them, through its own segmenter,
 it scores **60% top-1, 75% top-3**, and that is the number to expect from the camera.
 
-**Signing continuously: 37% of signs get the right word written** — but read the scope before
+**Signing continuously: 44% of signs get the right word written** — but read the scope before
 quoting that. Measured end to end, camera to transcript with the confidence gate included, over
 1,060 hand-annotated occurrences from four held-out signers of
-[LSE-Health-UVigo](https://zenodo.org/records/10234465). Mean of four seeds, sd 0.9.
+[LSE-Health-UVigo](https://zenodo.org/records/10234465). Mean of four seeds, sd 0.7.
 
-**It also writes words into pauses.** Of the windows that fall in a gap between annotated
-sentences — real silence, nobody signing — **30% get a word written anyway**. Raising the
-confidence gate barely helps: it halves the recall above long before it halves this. The
-classifier has never been shown what not-signing looks like, and no corpus here can teach it.
-This is the honest reason the transcript is editable and the UI says "useful, not authoritative".
+**It also writes words into pauses: 20% of them.** Of the windows that fall in a gap between
+annotated sentences — real silence, nobody signing — one in five gets a word written anyway.
+That figure was 30% for months, and over half of it turned out to be the model's own
+`__NADA__` class: it has been trained to recognise nobody-signing since the co-articulated
+retrain, and this app was writing that answer out as if it were a word. Honouring it took the
+rate to 13% at the old gate, which is what paid for the lower gate that lifted 37% to 44%.
 
-The scope is narrow on purpose: **51 health-domain signs scored inside a 287-sign model**. It does
+What is left is not a threshold problem. From 0.30 to 0.80 the gate halves recall while cutting
+pause babble far less, because the negatives that would fix the rest cannot be labelled here:
+only 101 sign types are annotated against the 90-150 signs a minute of fluent discourse, so a
+window inside a sentence that matches no gloss is usually a real sign nobody wrote down. This is
+the honest reason the transcript is editable and the UI says "useful, not authoritative".
+
+The scope is narrow on purpose: **51 health-domain signs scored inside a 286-sign model**. It does
 not extrapolate. Recognising isolated signs over 300 classes, over the ~8,000 of a full LSE
 dictionary, and recognising continuous signing over a large vocabulary are three different
 problems of increasing difficulty, and this figure belongs to the easiest of the three. Nobody has
