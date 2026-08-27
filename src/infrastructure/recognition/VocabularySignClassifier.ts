@@ -90,7 +90,7 @@ export class SignatureLayoutMismatchError extends Error {
 /**
  * The trained LSE vocabulary model. Its concept list comes from the manifest, never from a
  * number written here: it was 238 concepts from SWL-LSE alone, and became 287 once LSE-Health's
- * co-articulated annotations were added.
+ * co-articulated annotations were added — 286 signs and one trained "nobody is signing".
  *
  * Reads whole signs, so the segmenter decides when to ask it. Weights arrive as one flat
  * float32 blob described by a manifest, and are sliced up here in the order the trainer
