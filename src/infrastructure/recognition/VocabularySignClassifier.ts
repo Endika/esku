@@ -28,10 +28,14 @@ import {
 } from './gru';
 
 /**
- * The model is right about two thirds of the time on held-out data, so anything it is not
- * reasonably sure of is better left unsaid than written into someone's medical transcript.
+ * The engine's own floor, and *not* the one that decides: `RecognizeSignsUseCase` applies a
+ * higher one on top of it. This lower number is what keeps the two distinguishable in the
+ * diagnostics panel — under it the engine says nothing at all, between the two the stabiliser
+ * is what rejected the sign, and those need opposite fixes. 0.30 is also the figure the
+ * continuous benchmark reports against, where 88-96% of windows never reached it before the
+ * model had seen co-articulation.
  */
-const MIN_CONFIDENCE = 0.45;
+const MIN_CONFIDENCE = 0.3;
 
 const MAX_CANDIDATES = 3;
 

@@ -54,23 +54,23 @@ export class RecognizeSignsUseCase {
    */
   private readonly frameStabilizer = new CandidateStabilizer(1, 0.5);
   /**
-   * 0.60, and the second number is the one that matters — it is a *second* floor, applied
-   * on top of the 0.45 the vocabulary engine already enforces, so it alone decides.
+   * 0.45, and it is the number that decides: it is a *second* floor, applied on top of the
+   * 0.30 the vocabulary engine enforces, so a word has to clear this one.
    *
-   * It sat at 0.50, swept over the *spliced* continuous benchmark, where precision means
-   * "landed on some sign" — and spliced recordings have no silence in them, so that sweep
-   * could not see the failure that matters: a word written into a pause. Against real
-   * discourse it is visible, and it is bad. A third of the windows falling in gaps between
-   * annotated sentences get a word written, and the gate barely discriminates — 0.30 to 0.80
-   * halves recall while cutting that only from 48% to 21%.
+   * It was 0.60, set when this figure looked unaffordable: a third of the windows landing in
+   * gaps between annotated sentences got a word written, and the gate barely discriminated.
+   * Over half of that third was the model's own `__NADA__` class being written as a word.
+   * The negatives an earlier version of this comment said the corpus could not supply had
+   * been trained and shipped all along, and nothing on this side read them. With the
+   * abstention honoured, 0.60 writes into 13.3% of pause windows (sd 2.1, four held-out
+   * signers' worth of seeds) rather than 30.0%, and that is what freed this knob.
    *
-   * 0.60 is where lowering `minSignMs` to 850 pays without writing more into pauses than the
-   * old pairing did: +2.3 points of continuous word recall (35.0% → 37.3%, four seeds) with
-   * the pause-babble rate flat at 30%. Buying more recall from this knob means accepting
-   * more of it; the real fix is negatives the model can learn silence from, which this
-   * corpus cannot supply.
+   * 0.45 spends the room on recall: **37.3% → 44.2%** (sd 0.7) of signs written correctly on
+   * real continuous signing, with pause babble at 19.9% (sd 1.9) — still well under the 30%
+   * that shipped for months. All four seeds gain. Lower gates keep paying (46.4% at 0.40,
+   * 50.9% at 0.30) but babble climbs with them past what this corpus can defend.
    */
-  private readonly windowStabilizer = new CandidateStabilizer(1, 0.6);
+  private readonly windowStabilizer = new CandidateStabilizer(1, 0.45);
   private transcript = new Transcript();
   private listener: RecognitionListener | null = null;
   /** Guards against overlapping async classify calls piling up behind a slow frame. */
