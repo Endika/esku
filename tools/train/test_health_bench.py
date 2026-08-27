@@ -160,6 +160,31 @@ class SilenceTest(unittest.TestCase):
         self.assertTrue(words.silent((1200.0, 1800.0), []))
 
 
+class SpeakingTest(unittest.TestCase):
+    """The abstention is an answer, not a word — and it used to be counted as one."""
+
+    #: (close_ms, concept, confidence, start_ms, end_ms), the shape `score_windows` emits.
+    ROWS = [
+        (1000.0, 1, 0.70, 0.0, 1000.0),
+        (1200.0, 2, 0.95, 200.0, 1200.0),
+    ]
+
+    def test_the_abstention_window_presents_no_candidate(self) -> None:
+        self.assertEqual([self.ROWS[0]], words.speaking(self.ROWS, 2))
+
+    def test_nothing_is_dropped_when_the_model_declares_no_abstention(self) -> None:
+        self.assertEqual(self.ROWS, words.speaking(self.ROWS, None))
+
+    def test_the_abstention_used_to_outbid_the_real_sign(self) -> None:
+        # Where a grace period groups windows, `arbitrate` keeps the most confident of them, so
+        # the abstention at 0.95 silenced the real sign at 0.70 *and* got written in its place.
+        before = words.arbitrate(words.speaking(self.ROWS, None), 600, 0.60)
+        after = words.arbitrate(words.speaking(self.ROWS, 2), 600, 0.60)
+
+        self.assertEqual([2], [row[1] for row in before])
+        self.assertEqual([1], [row[1] for row in after])
+
+
 class RateTest(unittest.TestCase):
     def test_per_minute(self) -> None:
         self.assertAlmostEqual(60.0, bench.rate_per_minute(60, 60000))

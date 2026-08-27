@@ -34,6 +34,7 @@ import torch
 import health_bench as hb
 import health_dataset as hd
 import simulate_app as sim
+from train import ABSTENTION_LABEL
 from train import SignHead
 from vocabulary_features import vocabulary_signature
 
@@ -183,6 +184,47 @@ def silent(span: tuple[float, float], sentences: list[tuple[float, float]]) -> b
     return not any(start < s_end and end > s_start for s_start, s_end in sentences)
 
 
+def speaking(scored: list[tuple], abstention: int | None) -> list[tuple]:
+    """The windows that present a candidate at all.
+
+    The model's own "nobody is signing" class winning is an answer, not a word. That class
+    shipped inside the 287 concepts and this bench counted it like any other, so 35 of the 58
+    words it reported in pauses were the abstention itself — and where a grace period groups
+    windows, it also outbid the real sign competing with it.
+    """
+    if abstention is None:
+        return scored
+    return [row for row in scored if row[1] != abstention]
+
+
+def tally(
+    cached: dict[str, list[tuple]],
+    quiet: dict[str, set[tuple[float, float]]],
+    truth: dict[str, list[tuple[float, float, str]]],
+    predicted_key: list[str],
+    grace_ms: float,
+    gate: float,
+    abstention: int | None,
+) -> tuple[int, int, int]:
+    """(instancias recuperadas, palabras escritas, palabras en silencio) para una configuracion."""
+    recovered = words = spoken_in_silence = 0
+    for name, scored in cached.items():
+        emitted = arbitrate(speaking(scored, abstention), grace_ms, gate)
+        words += len(emitted)
+        spoken_in_silence += sum((start, end) in quiet[name] for *_, start, end in emitted)
+        claimed = set()
+        for _, concept, _, start, end in emitted:
+            said = predicted_key[concept]
+            for index, (gstart, gend, gkey) in enumerate(truth[name]):
+                if index in claimed or gkey != said:
+                    continue
+                if start < gend and end > gstart:
+                    claimed.add(index)
+                    recovered += 1
+                    break
+    return recovered, words, spoken_in_silence
+
+
 def arbitrate(scored: list[tuple], grace_ms: float, gate: float) -> list[tuple]:
     """Hold the first candidate, let windows closing within `grace_ms` compete, emit the best.
 
@@ -211,6 +253,12 @@ def main() -> None:
     parser.add_argument("--weights", type=Path, help="state_dict de un modelo reentrenado")
     parser.add_argument("--concepts", type=Path, help="lista de clases de ese modelo")
     parser.add_argument(
+        "--floors",
+        help=f"suelos a barrer, separados por comas (por defecto {','.join(map(str, FLOORS))}). "
+             "Cada suelo re-corre el segmentador y el modelo sobre todos los videos, que es lo "
+             "caro; las puertas de un mismo suelo salen gratis.",
+    )
+    parser.add_argument(
         "--only-test-signers",
         action="store_true",
         help="puntuar solo los videos de los signantes apartados en split.json",
@@ -222,6 +270,9 @@ def main() -> None:
         raise SystemExit("el parseo del xlsx no cuadra con el corpus publicado; no continuo")
 
     model, concepts = load_model(arguments.weights, arguments.concepts)
+    # The abstention is a class, not a word. Kept as an index so the old semantics stay
+    # reproducible in the column beside it: that is where the published 27.5% came from.
+    abstention = concepts.index(ABSTENTION_LABEL) if ABSTENTION_LABEL in concepts else None
     # Predictions are compared as normalised *labels*, not class indices, so the same bench
     # measures the shipped 238-class model and a retrained 286-class one without translation.
     predicted_key = [normalize(c) for c in concepts]
@@ -256,17 +307,26 @@ def main() -> None:
     print()
 
     sentences = hd.sentence_spans()
+    if abstention is None:
+        print("   este modelo no declara clase de abstencion")
+    else:
+        print(f"   abstencion                       : {concepts[abstention]} "
+              f"(indice {abstention}); las columnas 'antes' la cuentan como palabra")
+    print()
     header = (
         f"{'suelo':>6} {'espera':>7} {'puerta':>7} {'recall palabra':>15} "
         f"{'pal/min':>8} {'glosa/min':>10} {'muertas en puerta':>18} "
         f"{'falsos/silencio':>16}"
     )
+    if abstention is not None:
+        header += f" {'antes: recall':>14} {'antes: falsos':>15}"
     print(header)
     print("   " + "-" * (len(header) - 3))
 
+    floors = [int(v) for v in arguments.floors.split(",")] if arguments.floors else list(FLOORS)
     original = sim.MIN_SIGN_MS
     try:
-        for floor in FLOORS:
+        for floor in floors:
             cached = {}
             minutes = 0.0
             for path in paths:
@@ -286,31 +346,25 @@ def main() -> None:
 
             for grace in GRACES:
                 for gate in GATES:
-                    recovered = words = spoken_in_silence = 0
-                    for name, scored in cached.items():
-                        emitted = arbitrate(scored, grace, gate)
-                        words += len(emitted)
-                        spoken_in_silence += sum(
-                            (start, end) in quiet[name] for *_, start, end in emitted
-                        )
-                        claimed = set()
-                        for _, concept, _, start, end in emitted:
-                            said = predicted_key[concept]
-                            for index, (gstart, gend, gkey) in enumerate(truth[name]):
-                                if index in claimed or gkey != said:
-                                    continue
-                                if start < gend and end > gstart:
-                                    claimed.add(index)
-                                    recovered += 1
-                                    break
-                    dead = total_windows - words
-                    dead_text = f"{dead}/{total_windows}"
+                    recovered, words, spoken_in_silence = tally(
+                        cached, quiet, truth, predicted_key, grace, gate, abstention
+                    )
+                    dead_text = f"{total_windows - words}/{total_windows}"
                     false_text = f"{spoken_in_silence}/{quiet_windows}"
-                    print(
+                    row = (
                         f"{floor:>6} {grace:>7} {gate:>7.2f} "
                         f"{recovered / instances * 100:>14.1f}% {words / minutes:>8.1f} "
                         f"{instances / minutes:>10.1f} {dead_text:>18} {false_text:>16}"
                     )
+                    if abstention is not None:
+                        was_recovered, _, was_silence = tally(
+                            cached, quiet, truth, predicted_key, grace, gate, None
+                        )
+                        row += (
+                            f" {was_recovered / instances * 100:>13.1f}%"
+                            f" {f'{was_silence}/{quiet_windows}':>15}"
+                        )
+                    print(row)
             print()
     finally:
         sim.MIN_SIGN_MS = original
@@ -318,6 +372,10 @@ def main() -> None:
     print("recall palabra = instancias de las 51 clases con una palabra emitida del concepto")
     print("correcto que solapa temporalmente la glosa anotada, contada una vez por instancia.")
     print("La glosa/min es el techo teorico solo de estas 51 clases, no de todo lo que se signa.")
+    if abstention is not None:
+        print(f"Las columnas 'antes' cuentan {ABSTENTION_LABEL} como palabra, que es lo que hacia")
+        print("este banco cuando se publico el 27,5%. La clase es la abstencion del modelo: una")
+        print("ventana donde gana no escribe nada, y la app tampoco desde que lee el manifest.")
     print("falsos/silencio = palabras escritas en huecos entre frases anotadas, sobre las")
     print("ventanas que caen ahi. Es una cota inferior: dentro de una frase no hay forma de")
     print("distinguir un falso positivo de un signo real que nadie anoto.")
