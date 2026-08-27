@@ -35,6 +35,7 @@ import numpy as np
 
 import health_bench as hb
 import simulate_app as sim
+from train import ABSTENTION_LABEL
 
 SPLIT = hb.CACHE.parent / "split.json"
 #: A segmenter window earns a gloss's label when it holds at least this much of the gloss.
@@ -43,7 +44,8 @@ SPLIT = hb.CACHE.parent / "split.json"
 LABEL_CONTAINMENT = 0.5
 #: Below this, the window is treated as not carrying the sign. Between the two it is dropped.
 AMBIGUOUS_CONTAINMENT = 0.2
-REJECT_LABEL = "__NADA__"
+#: Imported, not repeated: `train.py` writes it into the manifest the browser reads.
+REJECT_LABEL = ABSTENTION_LABEL
 
 
 def overlap(first: tuple[float, float], second: tuple[float, float]) -> float:

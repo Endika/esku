@@ -90,12 +90,12 @@ export function renderApp(root: HTMLElement): void {
     <details class="card">
       <summary class="card__summary">
         <h2 class="card__title">Qué reconoce</h2>
-        <span class="card__note">287 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
+        <span class="card__note">286 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
       </summary>
 
       <div class="card__content">
         <p class="card__body">
-          <strong>Vocabulario LSE:</strong> 287 signos de ámbito sanitario, entrenados sobre
+          <strong>Vocabulario LSE:</strong> 286 signos de ámbito sanitario, entrenados sobre
           SWL-LSE y LSE-Health. Signo a signo y sin prisa, acierta el signo exacto en torno a
           <strong>2 de cada 3 veces</strong>, y está entre sus tres primeras opciones en
           <strong>8 de cada 10</strong>.
