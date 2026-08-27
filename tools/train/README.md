@@ -222,7 +222,7 @@ The `SHO` group is worth reporting separately when the segmenter is under discus
 exactly the short, heavily co-articulated signs that a minimum-duration floor makes
 *arithmetically* unreachable, per the IoU ≤ L/F bound below.
 
-### The floor and the gate, settled: 1150/0.50 → 850/0.60
+### The floor and the gate: 1150/0.50 → 850/0.60, and later 0.45
 
 With the classifier fixed, the second finding was re-tested and the trade reversed. Three
 columns, because two of them alone would pick the wrong config. Continuous recall and pause
@@ -254,8 +254,9 @@ Three findings, and only the first was expected:
 - **The gate is a poor discriminator, which is the real ceiling.** From 0.30 to 0.80 recall
   halves (49.6% → 24.3%) while babble falls only from 48% to 21%. Even at the strictest gate
   **one pause in five gets a word written**. Confidence does not separate signing from not
-  signing, because the model has never been shown what not-signing looks like — the negatives
-  `health_dataset.py` cannot build from this corpus are the same ones missing here.
+  signing — though the reason written here for months was wrong, and the section below has the
+  correction: the model *had* been shown what not-signing looks like, and this pipeline was
+  counting that answer as a word.
 - **Read the seed, not the run.** Scored on the shipped weights alone the change looks like
   +4.9; over all four seeds of that variant it is +2.3, because seed 29 is the worst at 1150
   and among the best at 850. The four-seed figures for the two shipped pairings:
@@ -263,10 +264,14 @@ Three findings, and only the first was expected:
   | pairing | continuous recall | words written into pauses |
   | --- | ---: | ---: |
   | 1150 / 0.50 (before) | 35.0% (sd 1.2) | 30.6% (sd 2.5) |
-  | 850 / 0.60 (now) | 37.3% (sd 0.9) | 30.0% (sd 2.4) |
+  | 850 / 0.60 (then) | 37.3% (sd 0.9) | 30.0% (sd 2.4) |
+  | **850 / 0.45 (now)** | **44.2% (sd 0.7)** | **19.9% (sd 1.9)** |
 
   +2.3 points of recall at a flat babble rate, about three standard errors. Modest, and the
-  only pairing on the grid that improves one axis without giving back the other.
+  only pairing on the grid that improved one axis without giving back the other — until the
+  abstention below turned out to be inflating the babble column of every row, which is what
+  made the third row affordable. Both babble figures in the first two rows count the model's
+  `__NADA__` class as a written word; the third does not.
 
 The grace period buys nothing and is not shipped: 0 and 600 ms are bit-identical at every
 floor, because a window is longer than the grace and nothing ever groups; 1500 and 2500 lose
@@ -279,6 +284,61 @@ it cannot be called an error. A window straddling a boundary counts as speech. B
 undercount, deliberately: the figure is a floor on the babble, never a flattering ceiling. And
 n is 211, so each rate carries about ±6 points; the trend across gates is monotone and solid,
 neighbouring pairs are not separable.
+
+### The silence class was already trained, and nobody was reading it
+
+`health_dataset.py` has cut a third source since the co-articulated retrain: **reject** windows,
+taken from the gaps between LSE-Health's translated-sentence tier, labelled `__NADA__`. They went
+into training, the class shipped inside the concept list — index 286 of 287 — and then **nothing
+consumed it**. `VocabularySignClassifier` treated it as an ordinary concept and `createGloss`
+humanised it to the word `__nada__`; `health_words.py` counted any emission as a written word. So
+the app wrote **131 of 1,477 words as `__nada__`** on held-out signers, and the pause-babble
+figure this file published included the model's own abstention as babble.
+
+Fixing the reading, with nothing retrained and the weights byte-identical:
+
+| policy at 850 / 0.60 | continuous recall | words written into pauses |
+| --- | ---: | ---: |
+| as published — abstention counted as a word | 38.1% | 58/211 (27.5%) |
+| **A — abstention wins, nothing is written** | **38.1%** | **23/211 (10.9%)** |
+| B — abstention dropped, runner-up written | 38.1% | 23/211 (10.9%) |
+
+**A and B were identical to the word**, because under an abstention no real concept ever cleared
+the gate. A is what ships: if the model answers "nobody is signing" at 0.95, writing the 0.46
+runner-up contradicts the answer it just gave, and A stays correct if the gate moves. The class
+is declared in the manifest as `abstentionConcept` rather than hardcoded in TypeScript, and
+`check_manifest.py` fails on any `__`-prefixed concept that goes undeclared — this bug was two
+places having to agree with nothing checking.
+
+**The freed room bought recall.** With babble no longer counting the abstention, the gate could
+come down. Four seeds, floor 850, grace 0, held-out signers:
+
+| gate | continuous recall | babble | babble counting `__NADA__` | words/min |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.30 | 50.9% (sd 1.1) | 30.7% (sd 3.7) | 51.5% | 27.6 |
+| 0.40 | 46.4% (sd 1.1) | 23.0% (sd 1.8) | 43.0% | 21.9 |
+| **0.45 (now)** | **44.2% (sd 0.7)** | **19.9% (sd 1.9)** | 39.1% | 19.5 |
+| 0.50 | 41.8% (sd 0.9) | 17.4% (sd 1.5) | 35.9% | 17.4 |
+| 0.60 (before) | 37.3% (sd 0.9) | 13.3% (sd 2.1) | 30.0% | 13.9 |
+
+0.45 gains **+6.9 points of recall in every one of the four seeds** and still writes into fewer
+pauses than the 30% that shipped for months. Lower gates keep paying and the babble goes with
+them; 0.30 is back to the old published rate, which is the trade this corpus cannot defend.
+
+**And the abstention does not cover the babble that remains — measured, not assumed.** The class
+is precise: over windows holding a real sign it is argmax in 0.9% (segmenter cuts) and 0.1% (gold
+cuts), and **never** reaches 0.60, which is why honouring it costs no recall at all. But over the
+pause windows where the app was writing a *real* word, `P(__NADA__) > 0.30` in **0.0%** of them.
+The abstention and the remaining babble are **disjoint**: it catches the easy pauses and stays
+quiet on exactly the ones that fool the classifier.
+
+That is the correction to the sentence this file used to carry. The negatives
+`health_dataset.py` *can* build — genuine gaps between sentences — are the easy ones, and they
+are already in. The ones that would fix the rest are not labellable here: a window inside a
+sentence matching no gloss is usually a real sign nobody annotated, 101 annotated types against
+90-150 signs a minute. **So no learned abstention is being built.** With 23 of 211 windows left
+and ±6 points of sampling error on that column, a further 3 or 4 points could not be demonstrated
+with this bench even if it worked.
 
 ### Checking against a second corpus
 
