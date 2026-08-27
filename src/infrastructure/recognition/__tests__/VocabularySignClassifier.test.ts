@@ -1,8 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { VOCABULARY_SIGNATURE_LENGTH } from '@domain/recognition/services/vocabularySignature';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
-import { VocabularySignClassifier } from '../VocabularySignClassifier';
+import { AbstentionUndeclaredError, VocabularySignClassifier } from '../VocabularySignClassifier';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..', '..');
 const MODELS = join(ROOT, 'public', 'models');
@@ -116,5 +117,121 @@ describe('VocabularySignClassifier', () => {
     for (const candidate of await engine.classify(frames)) {
       expect(candidate.source).toBe('vocabulary');
     }
+  });
+  describe('the abstention class', () => {
+    const CONCEPTS = ['DOLOR', 'CABEZA', '__NADA__'];
+
+    /**
+     * A three-concept model whose posteriors are dictated exactly.
+     *
+     * Every tensor is zero except `head.3.bias`, and a GRU with zero weights pools to zeros, so
+     * the logits *are* that bias: pass `Math.log(p)` and the softmax comes back as `p`. Real
+     * arithmetic end to end with a chosen output — nothing about `forward` is stubbed out.
+     */
+    function serveModel(probabilities: readonly number[], abstentionConcept: string | null): void {
+      const hidden = 1;
+      const frames = 16;
+      const gates = 3 * hidden;
+      const width = VOCABULARY_SIGNATURE_LENGTH / frames;
+      const shapes: Record<string, number[]> = {
+        'norm.weight': [width],
+        'norm.bias': [width],
+      };
+      for (const layer of [0, 1]) {
+        const inputs = layer === 0 ? width : 2 * hidden;
+        for (const suffix of ['', '_reverse']) {
+          shapes[`gru.weight_ih_l${layer}${suffix}`] = [gates, inputs];
+          shapes[`gru.weight_hh_l${layer}${suffix}`] = [gates, hidden];
+          shapes[`gru.bias_ih_l${layer}${suffix}`] = [gates];
+          shapes[`gru.bias_hh_l${layer}${suffix}`] = [gates];
+        }
+      }
+      shapes['head.0.weight'] = [2 * hidden, 2 * hidden];
+      shapes['head.0.bias'] = [2 * hidden];
+      shapes['head.3.weight'] = [CONCEPTS.length, 2 * hidden];
+      shapes['head.3.bias'] = [CONCEPTS.length];
+
+      const order = Object.keys(shapes);
+      const total = order.reduce(
+        (sum, name) => sum + (shapes[name] ?? []).reduce((a, b) => a * b, 1),
+        0,
+      );
+      const blob = new Float32Array(total);
+      blob.set(
+        probabilities.map((p) => Math.log(p)),
+        total - CONCEPTS.length,
+      );
+
+      const manifest = {
+        concepts: CONCEPTS,
+        abstentionConcept,
+        signatureLength: VOCABULARY_SIGNATURE_LENGTH,
+        frames,
+        hidden,
+        layers: 2,
+        order,
+        shapes,
+        testTop1: 0.7,
+        testTop3: 0.86,
+      };
+
+      globalThis.fetch = (async (input: RequestInfo | URL) =>
+        String(input).endsWith('.json')
+          ? ({ json: async () => manifest } as Response)
+          : ({ arrayBuffer: async () => blob.buffer } as Response)) as typeof fetch;
+    }
+
+    const oneWindow = () => [buildFrame(0, buildHand({ curls: [0.5, 0.2, 0.4, 0.6, 0.3] }))];
+
+    it('says nothing at all when the model says nobody is signing', async () => {
+      serveModel([0.03, 0.02, 0.95], '__NADA__');
+      const engine = classifier();
+      await engine.load();
+
+      expect(await engine.classify(oneWindow())).toEqual([]);
+      expect(engine.lastAbstained).toBe(true);
+    });
+
+    it('still says nothing when the runner-up would have cleared its floor', async () => {
+      // Abstention, not filtering. Measured on held-out signers the two policies scored
+      // identically — 38.1% recall, 10.9% of pause windows written — because under an
+      // abstention no real concept ever cleared the floor. Identical is not interchangeable:
+      // if the model answers "nobody is signing" at 0.52, writing the 0.46 runner-up
+      // contradicts the answer it just gave.
+      serveModel([0.46, 0.02, 0.52], '__NADA__');
+      const engine = classifier();
+      await engine.load();
+
+      expect(await engine.classify(oneWindow())).toEqual([]);
+    });
+
+    it('never offers the abstention as a word, even ranked under a real sign', async () => {
+      serveModel([0.6, 0.38, 0.02], '__NADA__');
+      const engine = classifier();
+      await engine.load();
+
+      const candidates = await engine.classify(oneWindow());
+
+      expect(candidates.map((candidate) => candidate.gloss.id)).toEqual(['DOLOR']);
+      expect(engine.lastAbstained).toBe(false);
+    });
+
+    it('keeps the abstention in the diagnostics, where it is the whole story', async () => {
+      serveModel([0.03, 0.02, 0.95], '__NADA__');
+      const engine = classifier();
+      await engine.load();
+      await engine.classify(oneWindow());
+
+      expect(engine.lastScores[0]?.text).toBe('sin signo');
+      expect(engine.lastScores[0]?.confidence).toBeCloseTo(0.95, 2);
+    });
+
+    it('refuses a model carrying a reserved concept it does not declare', async () => {
+      // This is how `__nada__` reached transcripts: the class arrived with the co-articulated
+      // retrain and nothing on this side knew it was not a word.
+      serveModel([0.03, 0.02, 0.95], null);
+
+      await expect(classifier().load()).rejects.toThrow(AbstentionUndeclaredError);
+    });
   });
 });

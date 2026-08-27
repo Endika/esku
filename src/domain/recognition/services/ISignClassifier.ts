@@ -36,4 +36,10 @@ export interface ISignClassifier {
   readonly lastScores?: readonly RawScore[];
   /** The feature vector the last `classify` was fed, summarised per body part. */
   readonly lastSignatureProfile?: SignatureProfile | null;
+  /**
+   * Whether the last `classify` returned nothing because the model said so, rather than
+   * because its floor rejected every option. Both leave `classify` empty and they mean
+   * opposite things: an abstention is an answer, a floor rejection is a near miss.
+   */
+  readonly lastAbstained?: boolean;
 }
