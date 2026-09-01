@@ -1,9 +1,9 @@
 # Offline training pipeline for the LSE vocabulary head.
 # Never installed by the app or by CI — the browser only ever loads the exported ONNX.
 torch==2.13.0
-numpy==2.5.1
+numpy==2.5.2
 onnx==1.22.0
-onnxruntime==1.28.0
+onnxruntime==1.29.0
 pandas==3.0.5
 scikit-learn==1.9.0
 tqdm==4.70.0
@@ -11,5 +11,5 @@ tqdm==4.70.0
 # Only the benches that read *video* need these: `check_calse.py` and `health_extract.py`
 # decode frames and run MediaPipe themselves, because those corpora ship video rather than
 # pre-extracted landmarks the way SWL-LSE does.
-mediapipe==1.0.0
+mediapipe==1.0.1
 opencv-contrib-python==5.0.0.93
