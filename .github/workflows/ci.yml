@@ -14,6 +14,8 @@ permissions:
 
 jobs:
   verify:
+    # Pinned by branch protection as a required status check; renaming this string silently
+    # stops that check from ever reporting and blocks every merge. Change both together.
     name: Lint, typecheck, test, build
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -27,14 +29,17 @@ jobs:
 
       - run: npm ci
 
-      - name: Lint and format (Biome)
+      - name: Format check (Biome)
+        run: npm run format:check
+
+      - name: Lint (Biome)
         run: npm run lint
 
       - name: Typecheck
-        run: npm run typecheck
+        run: npm run type:check
 
       - name: Test
-        run: npm test
+        run: npm run test:run
 
       - name: Build
         run: npm run build

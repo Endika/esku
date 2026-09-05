@@ -92,9 +92,9 @@ node tools/browser/layout.mjs
 ```
 
 It exists because the page had grown to 3.1 screens with ten buttons on it and every review
-read fine — jsdom computes no heights, so nothing in `npm test` could see it. Two readings it
-takes are forced rather than reached (`is-running` and a filled transcript): both need a camera
-and a recognised sign, and what is being measured is the layout they produce.
+read fine — jsdom computes no heights, so nothing in `npm run test:run` could see it. Two
+readings it takes are forced rather than reached (`is-running` and a filled transcript): both
+need a camera and a recognised sign, and what is being measured is the layout they produce.
 
 ## What it asserts, and what it only measures
 
