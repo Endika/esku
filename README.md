@@ -153,12 +153,13 @@ that asserts the real figure rather than a hoped-for one.
 
 ```bash
 npm install
-npm run dev        # vite dev server
-npm test           # vitest
-npm run typecheck  # tsc --noEmit
-npm run lint       # biome
-npm run build      # tsc && vite build
-npm run icons      # regenerate PWA icons from public/favicon.svg
+npm run dev          # vite dev server
+npm run format:check # biome format
+npm run lint         # biome check (format + lint)
+npm run type:check   # tsc --noEmit
+npm run test:run     # vitest run
+npm run build        # tsc && vite build
+npm run icons        # regenerate PWA icons from public/favicon.svg
 ```
 
 **The camera cannot be tested under WSL2** — no device access. Use a browser on the host OS
