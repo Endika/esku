@@ -1,6 +1,7 @@
 # Esku ✋
 
-Offline PWA that reads sign language from your phone camera and turns it into text.
+Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from
+your phone camera, one at a time — a sequence of signs, not a grammatical translation.
 
 **Live:** <https://endika.github.io/esku/>
 

@@ -32,10 +32,9 @@ export default defineConfig(({ command }) => ({
       injectRegister: 'auto',
       includeAssets: ['favicon.svg', 'favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
-        name: 'Esku — Lengua de signos a texto',
+        name: 'Esku — Reconoce signos de LSE',
         short_name: 'Esku',
-        description:
-          'Lee lengua de signos española con la cámara y la convierte en texto. Funciona sin conexión.',
+        description: 'Reconoce signos de LSE con la cámara, de uno en uno. Funciona sin conexión.',
         theme_color: '#7C3AED',
         background_color: '#0B0A12',
         display: 'standalone',

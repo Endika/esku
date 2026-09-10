@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.16.0",
   "type": "module",
-  "description": "Offline PWA that reads Spanish Sign Language (LSE) from your phone camera and turns it into text",
+  "description": "Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from your phone camera, one at a time — a sequence of signs, not a grammatical translation",
   "license": "MIT",
   "author": "Endika Iglesias",
   "homepage": "https://endika.github.io/esku/",

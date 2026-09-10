@@ -28,7 +28,7 @@ export function renderApp(root: HTMLElement): void {
         <img class="masthead__mark" src="${import.meta.env.BASE_URL}favicon.svg" alt="" width="44" height="44" />
         <div>
           <h1 class="masthead__title">Esku</h1>
-          <p class="masthead__tagline">Lengua de signos a texto, sin conexión</p>
+          <p class="masthead__tagline">Signos de LSE a texto, de uno en uno y sin conexión</p>
         </div>
       </header>
 
