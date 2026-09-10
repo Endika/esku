@@ -1,7 +1,7 @@
 {
   "name": "esku",
   "private": true,
-  "version": "1.16.0",
+  "version": "1.16.1",
   "type": "module",
   "description": "Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from your phone camera, one at a time — a sequence of signs, not a grammatical translation",
   "license": "MIT",

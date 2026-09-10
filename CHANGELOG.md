@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.1](https://github.com/Endika/esku/compare/v1.16.0...v1.16.1) (2026-09-10)
+
+
+### Documentation
+
+* describe esku as sign recognition, not translation ([5377685](https://github.com/Endika/esku/commit/537768505080b211024ebe176456e0347ed141e5))
+
 ## [1.16.0](https://github.com/Endika/esku/compare/v1.15.2...v1.16.0) (2026-08-27)
 
 
