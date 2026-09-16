@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2](https://github.com/Endika/esku/compare/v1.16.1...v1.16.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* **deps:** bump sharp to 0.35.4 ([60a7831](https://github.com/Endika/esku/commit/60a7831672268a7b3d892a611acde28791e008c3))
+
 ## [1.16.1](https://github.com/Endika/esku/compare/v1.16.0...v1.16.1) (2026-09-10)
 
 
