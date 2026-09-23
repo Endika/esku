@@ -18,110 +18,162 @@ declare const __APP_VERSION__: string;
 export function renderApp(root: HTMLElement): void {
   root.innerHTML = `
     <!--
-      Everything needed to actually read signs lives in one viewport-tall column, so that
-      turning the camera on never means scrolling to reach a control. Secondary panels stay
-      below it rather than behind a sheet: the diagnostics panel in particular is read *while*
-      the camera runs, and the sticky action bar keeps the controls reachable down there.
+      The viewfinder owns the screen: everything needed to read signs is on it or under the
+      video, so turning the camera on never means scrolling to reach a control. The tools
+      slide up over it as a sheet on a phone and sit beside it on a wide screen, so the
+      diagnostics panel can be read *while* the camera runs.
     -->
-    <div class="shell" id="shell">
-      <header class="masthead">
-        <img class="masthead__mark" src="${import.meta.env.BASE_URL}favicon.svg" alt="" width="44" height="44" />
-        <div>
-          <h1 class="masthead__title">Esku</h1>
-          <p class="masthead__tagline">Signos de LSE a texto, de uno en uno y sin conexión</p>
+    <div class="viewer">
+      <section class="viewfinder" id="viewfinder" aria-label="Cámara">
+        <div class="hud">
+          <p class="hud__status" id="status" role="status"></p>
+          <!-- Up here with the camera's state, not in the bottom bar: it is a control about the
+               camera. Off, it would be a button that does nothing visible. -->
+          <button class="hud__flip" id="flip" type="button" aria-label="Cambiar a cámara trasera">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 9h3l1.6-2.2h6.8L17 9h3v10H4z" />
+              <path d="M9.6 14.2a2.6 2.6 0 0 0 4.9.9M14.4 13a2.6 2.6 0 0 0-4.9-.9" />
+              <path d="M9.4 10.6v1.5h1.5M14.6 15.6v-1.5h-1.5" />
+            </svg>
+          </button>
+          <ul class="parts" id="parts" aria-label="Qué está viendo la cámara">
+            ${PART_ORDER.map(
+              (part) => `
+              <li class="part" data-part="${part}" style="--part: ${PART_COLOURS[part]}">
+                <svg class="part__mark" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+                  <circle class="part__dot" cx="6" cy="6" r="3" />
+                  <path class="part__tick" d="M2.5 6.3 5 8.6l4.5-5" />
+                  <path class="part__cross" d="M3 3l6 6M9 3 3 9" />
+                </svg>
+                <span>${PART_LABELS[part]}</span>
+                <span class="part__state"></span>
+              </li>`,
+            ).join('')}
+          </ul>
         </div>
-      </header>
 
-      <div class="stage">
-        <video id="video" class="stage__video" playsinline muted></video>
-        <canvas id="overlay" class="stage__overlay" aria-hidden="true"></canvas>
-        <p class="stage__placeholder" id="placeholder">
-          La cámara se activa al empezar.<br />El vídeo no se graba ni sale del dispositivo.
-        </p>
-        <p class="stage__hint" id="hint" hidden></p>
+        <div class="frame" id="frame" data-track="idle">
+          <video id="video" class="frame__video" playsinline muted></video>
+          <canvas id="overlay" class="frame__overlay" aria-hidden="true"></canvas>
 
-        <ul class="parts" id="parts">
-          ${PART_ORDER.map(
-            (part) => `
-            <li class="part" data-part="${part}">
-              <span class="part__dot" style="--part: ${PART_COLOURS[part]}"></span>
-              ${PART_LABELS[part]}
-            </li>`,
-          ).join('')}
-        </ul>
+          <!-- The framing brackets are the tracking state: dim, white on a hand, yellow once
+               hands, face and torso are all in frame. -->
+          <span class="guide guide--tl" aria-hidden="true"></span>
+          <span class="guide guide--tr" aria-hidden="true"></span>
+          <span class="guide guide--bl" aria-hidden="true"></span>
+          <span class="guide guide--br" aria-hidden="true"></span>
 
-        <!-- On the camera, not in the action bar: it is a control about the camera, the same
-             argument that put the body-part chips here. Off, it would be a button that does
-             nothing visible. -->
-        <button class="stage__flip" id="flip" type="button" aria-label="Cambiar a cámara trasera">
-          <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor"
-               stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M4 9h3l1.6-2.2h6.8L17 9h3v10H4z" />
-            <path d="M9.6 14.2a2.6 2.6 0 0 0 4.9.9M14.4 13a2.6 2.6 0 0 0-4.9-.9" />
-            <path d="M9.4 10.6v1.5h1.5M14.6 15.6v-1.5h-1.5" />
-          </svg>
-        </button>
-      </div>
+          <div class="idle" id="placeholder">
+            <img class="idle__mark" src="${import.meta.env.BASE_URL}favicon.svg" alt="" width="56" height="56" />
+            <h1 class="idle__title">Esku</h1>
+            <p class="idle__tagline">Signos de LSE a texto, de uno en uno y sin conexión</p>
+            <p class="idle__note">
+              La cámara se activa al empezar. El vídeo no se graba ni sale del dispositivo.
+            </p>
+            <p class="idle__note">286 signos LSE y el alfabeto — acierta 2 de cada 3 veces</p>
+          </div>
 
-      <div class="transcript" id="transcript" aria-live="polite"></div>
-
-      <p class="status" id="status" role="status"></p>
-
-      <!-- One row: the four buttons this replaces wrapped to two on a 390 px phone and to
-           three at 320 px, and two of them acted on a transcript that did not exist yet. -->
-      <div class="actions actions--bar" id="actions">
-        <button class="button button--grow" id="toggle" type="button">Empezar a leer</button>
-        <div class="actions__edit" id="edit" hidden>
-          <button class="button button--quiet" id="undo" type="button">Deshacer</button>
-          <button class="button button--quiet" id="clear" type="button">Limpiar</button>
+          <p class="hint" id="hint" hidden></p>
         </div>
-      </div>
+
+        <div class="caption">
+          <div class="transcript" id="transcript" aria-live="polite"></div>
+          <!-- Undo and clear exist only once there is something to undo or clear. -->
+          <div class="caption__edit" id="edit" hidden>
+            <button class="chip-button" id="transcript-undo" type="button">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                   stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+              </svg>
+              Deshacer
+            </button>
+            <button class="chip-button" id="transcript-clear" type="button">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor"
+                   stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+              </svg>
+              Limpiar
+            </button>
+          </div>
+        </div>
+
+        <nav class="controls" aria-label="Controles">
+          <button class="controls__tools" id="tools-open" type="button"
+                  aria-controls="tools" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+              <path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" />
+            </svg>
+            <span>Herramientas</span>
+          </button>
+          <button class="disc" id="toggle" type="button">
+            <span class="disc__face" aria-hidden="true"></span>
+            <span class="disc__label" id="toggle-label">Empezar a leer</span>
+          </button>
+          <span class="controls__balance" aria-hidden="true"></span>
+        </nav>
+      </section>
+
+      <aside class="tools" id="tools" aria-label="Herramientas">
+        <div class="tools__head">
+          <h2 class="tools__title">Herramientas</h2>
+          <button class="tools__close" id="tools-close" type="button" aria-label="Cerrar herramientas">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="tools__body">
+          <div id="teach"></div>
+          <div id="diagnostics"></div>
+          <div id="storage"></div>
+
+          <!--
+            The reliability figure lives in the summary, not behind it: what made this section
+            worth having was saying out loud that the model is fallible, so that sentence has to
+            survive the fold.
+          -->
+          <details class="card">
+            <summary class="card__summary">
+              <h2 class="card__title">Qué reconoce</h2>
+              <span class="card__note">286 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
+            </summary>
+
+            <div class="card__content">
+              <p class="card__body">
+                <strong>Vocabulario LSE:</strong> 286 signos de ámbito sanitario, entrenados sobre
+                SWL-LSE y LSE-Health. Signo a signo y sin prisa, acierta el signo exacto en torno a
+                <strong>2 de cada 3 veces</strong>, y está entre sus tres primeras opciones en
+                <strong>8 de cada 10</strong>.
+              </p>
+              <p class="card__body">
+                <strong>Signando de corrido cae mucho:</strong> escribe la palabra correcta en torno a
+                <strong>1 de cada 3</strong> signos. Un signo pegado al siguiente es más difícil que un
+                signo suelto, y eso no está resuelto en ningún idioma todavía. Es un modelo real, no
+                infalible: revisa el texto antes de darlo por bueno.
+              </p>
+              <p class="card__body">
+                <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
+                vocabulario. Intenta las 27 letras y acierta unas mejor que otras: desconfía de
+                <strong>${WEAK_LETTERS.join(', ')}</strong>, que salen bien menos de una de cada tres
+                veces porque apenas aparecen en el corpus con el que se entrenó.
+              </p>
+            </div>
+          </details>
+
+          <p class="footnote">
+            v${__APP_VERSION__} · Vocabulario LSE sobre
+            <a href="https://zenodo.org/records/13691887" rel="noreferrer">SWL-LSE</a> (CC-BY-4.0) y
+            <a href="https://zenodo.org/records/10234465" rel="noreferrer">LSE-Health-UVigo</a>
+            (CC-BY-NC-4.0) · el vídeo no sale de tu dispositivo:
+            <a href="https://github.com/Endika/esku/blob/main/PRIVACY.md" rel="noreferrer">privacidad</a>
+          </p>
+        </div>
+      </aside>
     </div>
-
-    <div id="teach"></div>
-    <div id="storage"></div>
-    <div id="diagnostics"></div>
-
-    <!--
-      The reliability figure lives in the summary, not behind it. Folding this card away
-      saves 363 px, but what made it worth having was saying out loud that the model is
-      fallible — so that sentence has to survive the fold.
-    -->
-    <details class="card">
-      <summary class="card__summary">
-        <h2 class="card__title">Qué reconoce</h2>
-        <span class="card__note">286 signos LSE y el alfabeto — acierta 2 de cada 3 veces</span>
-      </summary>
-
-      <div class="card__content">
-        <p class="card__body">
-          <strong>Vocabulario LSE:</strong> 286 signos de ámbito sanitario, entrenados sobre
-          SWL-LSE y LSE-Health. Signo a signo y sin prisa, acierta el signo exacto en torno a
-          <strong>2 de cada 3 veces</strong>, y está entre sus tres primeras opciones en
-          <strong>8 de cada 10</strong>.
-        </p>
-        <p class="card__body" style="margin-top: 10px">
-          <strong>Signando de corrido cae mucho:</strong> escribe la palabra correcta en torno a
-          <strong>1 de cada 3</strong> signos. Un signo pegado al siguiente es más difícil que un
-          signo suelto, y eso no está resuelto en ningún idioma todavía. Es un modelo real, no
-          infalible: revisa el texto antes de darlo por bueno.
-        </p>
-        <p class="card__body" style="margin-top: 10px">
-          <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
-          vocabulario. Intenta las 27 letras y acierta unas mejor que otras: desconfía de
-          <strong>${WEAK_LETTERS.join(', ')}</strong>, que salen bien menos de una de cada tres
-          veces porque apenas aparecen en el corpus con el que se entrenó.
-        </p>
-      </div>
-    </details>
-
-    <p class="footnote">
-      v${__APP_VERSION__} · Vocabulario LSE sobre
-      <a href="https://zenodo.org/records/13691887" rel="noreferrer">SWL-LSE</a> (CC-BY-4.0) y
-      <a href="https://zenodo.org/records/10234465" rel="noreferrer">LSE-Health-UVigo</a>
-      (CC-BY-NC-4.0) · el vídeo no sale de tu dispositivo:
-      <a href="https://github.com/Endika/esku/blob/main/PRIVACY.md" rel="noreferrer">privacidad</a>
-    </p>
   `;
 
   const video = must<HTMLVideoElement>(root, '#video');
@@ -132,14 +184,58 @@ export function renderApp(root: HTMLElement): void {
   const toggle = must<HTMLButtonElement>(root, '#toggle');
   const status = must<HTMLElement>(root, '#status');
   const edit = must<HTMLElement>(root, '#edit');
+  const frame = must<HTMLElement>(root, '#frame');
+  const toggleLabel = must<HTMLElement>(root, '#toggle-label');
 
-  // In camera mode the bar is fixed, so the page reserves its height at the bottom. Measured
-  // rather than hard-coded: it grows a second row on a narrow phone once the transcript has
-  // text, and a stale constant would leave the last panel hidden underneath it.
-  const actions = must<HTMLElement>(root, '#actions');
-  new ResizeObserver(() => {
-    root.style.setProperty('--bar', `${actions.offsetHeight}px`);
-  }).observe(actions);
+  // A sheet over the camera on a phone, a column beside it on a wide screen. Closed, it is
+  // inert, so its controls drop out of the tab order and the screen reader alike.
+  let running = false;
+  const tools = must<HTMLElement>(root, '#tools');
+  const toolsOpen = must<HTMLButtonElement>(root, '#tools-open');
+  const docked = window.matchMedia('(min-width: 960px)');
+  const setTools = (open: boolean) => {
+    const shown = open || docked.matches;
+    tools.classList.toggle('is-open', open);
+    tools.inert = !shown;
+    toolsOpen.setAttribute('aria-expanded', String(open));
+  };
+  toolsOpen.addEventListener('click', () => setTools(!tools.classList.contains('is-open')));
+  must<HTMLButtonElement>(root, '#tools-close').addEventListener('click', () => {
+    setTools(false);
+    toolsOpen.focus();
+  });
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && tools.classList.contains('is-open')) {
+      setTools(false);
+      toolsOpen.focus();
+    }
+  });
+  // Tapping the picture closes the sheet, as on the platform. Only the picture: the flip
+  // button stays usable above an open sheet.
+  frame.addEventListener('click', () => {
+    if (tools.classList.contains('is-open')) setTools(false);
+  });
+  docked.addEventListener('change', () => setTools(false));
+  setTools(false);
+
+  // The brackets frame the picture, not the box around it: the same letterbox arithmetic the
+  // overlay uses for `object-fit: contain`, so they never straddle the edge of the video.
+  const placeGuides = () => {
+    const { videoWidth, videoHeight } = video;
+    if (!running || !videoWidth || !videoHeight) {
+      frame.style.removeProperty('--guide-x');
+      frame.style.removeProperty('--guide-y');
+      return;
+    }
+    const scale = Math.min(frame.clientWidth / videoWidth, frame.clientHeight / videoHeight);
+    frame.style.setProperty('--guide-x', `${(frame.clientWidth - videoWidth * scale) / 2}px`);
+    frame.style.setProperty('--guide-y', `${(frame.clientHeight - videoHeight * scale) / 2}px`);
+  };
+  new ResizeObserver(placeGuides).observe(frame);
+  video.addEventListener('loadedmetadata', placeGuides);
+  video.addEventListener('resize', placeGuides);
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   const parts = must<HTMLElement>(root, '#parts');
   const container = new Container(video);
@@ -147,18 +243,46 @@ export function renderApp(root: HTMLElement): void {
   const overlay = new LandmarkOverlay(overlayCanvas, video);
   const diagnostics = new DiagnosticsPanel(must<HTMLElement>(root, '#diagnostics'));
 
-  /** Green when a part is being tracked, red when it is not — at a glance, per part. */
+  /**
+   * A tick when a part is being tracked, a cross when it is not, per part and never by colour
+   * alone. The framing brackets sum it up: a hand found, then hands, face and torso in frame.
+   */
   const showPresence = (presence: PartPresence | null) => {
     for (const part of PART_ORDER) {
       const chip = parts.querySelector<HTMLElement>(`[data-part="${part}"]`);
-      chip?.classList.toggle('part--on', presence?.[part] === true);
-      chip?.classList.toggle('part--off', presence !== null && presence[part] === false);
+      const on = presence?.[part] === true;
+      const off = presence !== null && presence[part] === false;
+      chip?.classList.toggle('part--on', on);
+      chip?.classList.toggle('part--off', off);
+      const state = chip?.querySelector<HTMLElement>('.part__state');
+      if (state) state.textContent = on ? ': visto' : off ? ': no visto' : '';
     }
+    frame.dataset.track =
+      presence === null
+        ? 'idle'
+        : presence.hands && presence.face && presence.torso
+          ? 'framed'
+          : presence.hands
+            ? 'hand'
+            : 'searching';
   };
-  let running = false;
-
   const render = (text: string, candidates: readonly { gloss: { text: string } }[]) => {
+    const grew = text.length > (transcriptEl.textContent ?? '').length;
     transcriptEl.textContent = text;
+    // The sign that just landed lifts out of the live guess and into the text.
+    if (grew && !hint.hidden && !reduceMotion.matches) {
+      hint.animate(
+        [
+          { transform: 'translate(-50%, 0)', opacity: 1 },
+          { transform: 'translate(-50%, 28px)', opacity: 0 },
+        ],
+        { duration: 320, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' },
+      );
+      transcriptEl.animate([{ opacity: 0.55 }, { opacity: 1 }], {
+        duration: 420,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      });
+    }
     // Undo and clear exist only once there is something to undo or clear. Every path that
     // changes the transcript comes through here, so this is the single place that decides.
     edit.hidden = text.length === 0;
@@ -182,13 +306,14 @@ export function renderApp(root: HTMLElement): void {
       recognize.stop();
       running = false;
       root.classList.remove('is-running');
-      toggle.textContent = 'Empezar a leer';
+      toggleLabel.textContent = 'Empezar a leer';
       placeholder.hidden = false;
       hint.hidden = true;
       video.classList.remove('is-live');
       overlayCanvas.classList.remove('is-live');
       overlay.clear();
       showPresence(null);
+      placeGuides();
       status.textContent = 'Cámara apagada.';
       return;
     }
@@ -209,13 +334,12 @@ export function renderApp(root: HTMLElement): void {
         diagnostics.update(update.diagnostics);
       });
       running = true;
-      // Camera mode: the masthead folds away, the video takes the height the fixed 3/4 ratio
-      // used to claim regardless of device, and the controls pin to the bottom of the screen.
+      placeGuides();
       root.classList.add('is-running');
       placeholder.hidden = true;
       video.classList.add('is-live');
       overlayCanvas.classList.add('is-live');
-      toggle.textContent = 'Parar';
+      toggleLabel.textContent = 'Parar';
     } catch (error) {
       status.textContent =
         error instanceof CameraUnavailableError
@@ -230,12 +354,12 @@ export function renderApp(root: HTMLElement): void {
     }
   });
 
-  must<HTMLButtonElement>(root, '#undo').addEventListener('click', () => {
+  must<HTMLButtonElement>(root, '#transcript-undo').addEventListener('click', () => {
     recognize.undo();
     render(recognize.current.toText(), []);
   });
 
-  must<HTMLButtonElement>(root, '#clear').addEventListener('click', () => {
+  must<HTMLButtonElement>(root, '#transcript-clear').addEventListener('click', () => {
     recognize.clear();
     render(recognize.current.toText(), []);
   });

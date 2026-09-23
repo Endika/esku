@@ -1,42 +1,79 @@
 /*
  * Esku design tokens.
  *
- * Dark is the default rather than a variant: the app is used with the camera open, often
- * in a waiting room or a clinic, and a bright white page behind a video feed is both
- * harder to read and more conspicuous to hold up in front of someone.
+ * Everything follows the system scheme, light or dark, except the picture itself: while the
+ * camera runs the video frame goes black, because the letterbox around a feed has to recede
+ * whatever the page around it does. What is drawn over the video (brackets, the live guess)
+ * uses the on-video family, which never changes with the scheme.
  */
 :root {
-  --brand: #8b5cf6;
-  --brand-strong: #7c3aed;
-  --brand-soft: rgba(139, 92, 246, 0.14);
+  /* Brand violet lives on the shutter disc and nowhere else. */
+  --vf-shutter: #7c3aed;
+  --vf-shutter-hover: #8b5cf6;
+
+  --vf-bg: #000;
+  --vf-ink: #fff;
+  --vf-muted: rgba(255, 255, 255, 0.72);
+  --vf-faint: rgba(255, 255, 255, 0.34);
+  /* The quietest text allowed on the black: 5.3:1. */
+  --vf-soft: rgba(255, 255, 255, 0.52);
+  --vf-line: rgba(255, 255, 255, 0.16);
+  --vf-chip: #1c1c21;
+  /* The camera's own "in frame" colour, for the framing brackets. */
+  --vf-signal: #ffd60a;
+  --vf-well: #000;
+  /* The letterbox around a running feed, in either scheme. */
+  --vf-video: #000;
+  --vf-focus: #ffd60a;
+  --vf-hover: rgba(255, 255, 255, 0.08);
+
+  /* Over the video, in either scheme. */
+  --ov-ink: #fff;
+  --ov-soft: rgba(255, 255, 255, 0.52);
+  --ov-faint: rgba(255, 255, 255, 0.34);
+  --ov-scrim: rgba(0, 0, 0, 0.58);
 
   --bg: #0b0a12;
-  --surface: #171526;
-  --surface-raised: #211d38;
-  --border: rgba(255, 255, 255, 0.09);
-
+  --surface: #16141f;
+  --surface-raised: #211e2e;
+  --border: rgba(255, 255, 255, 0.1);
   --text: #f5f3ff;
-  --text-muted: #a5a0c0;
+  --text-muted: #aaa5c2;
+  --text-soft: rgba(245, 243, 255, 0.12);
 
   --ok: #34d399;
   --warn: #fbbf24;
   --danger: #f87171;
 
-  --radius: 18px;
-  --radius-lg: 26px;
+  --radius: 14px;
+  --radius-lg: 22px;
   --gap: 16px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #faf9ff;
+    --bg: #f6f5fa;
     --surface: #ffffff;
-    --surface-raised: #f3f0ff;
-    --border: rgba(24, 20, 45, 0.1);
-    --text: #191533;
-    --text-muted: #5d5880;
+    --surface-raised: #f0eef7;
+    --border: rgba(24, 20, 45, 0.12);
+    --text: #17142b;
+    --text-muted: #57526f;
+    --text-soft: rgba(23, 20, 43, 0.1);
+
+    --vf-bg: #fff;
+    --vf-ink: #131318;
+    --vf-muted: rgba(19, 19, 24, 0.7);
+    --vf-faint: rgba(19, 19, 24, 0.28);
+    --vf-soft: rgba(19, 19, 24, 0.6);
+    --vf-line: rgba(19, 19, 24, 0.14);
+    --vf-chip: #f1f1f4;
+    --vf-well: #eef0f3;
+    --vf-focus: #131318;
+    --vf-hover: rgba(19, 19, 24, 0.05);
+    --danger: #c0262d;
     color-scheme: light;
   }
 }
@@ -52,7 +89,7 @@ body {
 }
 
 body {
-  background: var(--bg);
+  background: var(--vf-bg);
   color: var(--text);
   font-family:
     system-ui,
@@ -62,127 +99,717 @@ body {
     sans-serif;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  caret-color: currentColor;
 }
 
-#app {
-  --pad-top: 20px;
-  --pad-bottom: calc(40px + env(safe-area-inset-bottom));
-  /* Height of the pinned action bar in camera mode, reserved so nothing hides beneath it.
-     App.ts replaces this with the bar's measured height; the value here is the one-row case. */
-  --bar: 68px;
-
-  max-width: 560px;
-  margin: 0 auto;
-  /* Keep the transcript clear of the iOS home indicator when installed. */
-  padding: var(--pad-top) 16px var(--pad-bottom);
+::selection {
+  background: var(--text-soft);
+  color: inherit;
 }
 
-/*
- * Camera mode.
- *
- * With the camera on this stops being a page and becomes a tool: everything needed to read
- * signs occupies exactly one viewport, so no control is ever a scroll away. Measured before
- * this existed, the primary block alone came to ~813 px on a 390x844 phone — the masthead and
- * a hard-coded 3/4 stage between them claimed more than half the screen.
- */
-#app.is-running .shell {
+/* --- The viewer: viewfinder, and the tools beside it on a wide screen --- */
+
+.viewer {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.viewfinder {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
   /* dvh, not vh: mobile browsers shrink the viewport as their chrome collapses, and vh keeps
-     measuring the tall version, pushing the action bar under the address bar. */
-  min-height: calc(100vh - var(--pad-top) - var(--pad-bottom));
-  min-height: calc(100dvh - var(--pad-top) - var(--pad-bottom));
+     measuring the tall version, pushing the controls under the address bar. */
+  height: 100vh;
+  height: 100dvh;
+  background: var(--vf-bg);
+  color: var(--vf-ink);
 }
 
-/* Name and tagline are for someone deciding whether to use the app, not someone using it. */
-#app.is-running .masthead {
+/* The one element that absorbs whatever space the device has. */
+.frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--vf-well);
+  color: var(--vf-faint);
+  transition:
+    color 0.3s var(--ease-out),
+    background-color 0.3s var(--ease-out);
+}
+
+#app.is-running .frame {
+  background: var(--vf-video);
+  color: var(--ov-faint);
+}
+
+/* On white, a black block edge to edge reads as a hole; inset and rounded it reads as a
+   window onto the camera. */
+@media (prefers-color-scheme: light) {
+  .frame {
+    margin: 0 12px;
+    border-radius: var(--radius-lg);
+  }
+}
+
+/* Three readable steps: nothing seen stays dim, a hand turns them white, a framed body yellow. */
+#app.is-running .frame[data-track='searching'] {
+  color: var(--ov-soft);
+}
+
+#app.is-running .frame[data-track='hand'] {
+  color: var(--ov-ink);
+}
+
+#app.is-running .frame[data-track='framed'] {
+  color: var(--vf-signal);
+}
+
+.frame__video,
+.frame__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Mirrored so the user sees themselves as in a mirror; raising the right hand must look
+     like raising the right hand, or aiming a handshape becomes guesswork. The skeleton is
+     mirrored exactly like the video beneath it, or the two drift apart the moment either
+     moves. */
+  transform: scaleX(-1);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+/* `contain`, not `cover`: the overlay maps landmarks through the same letterboxing. */
+.frame__video {
+  object-fit: contain;
+}
+
+.frame__overlay {
+  pointer-events: none;
+}
+
+.frame__video.is-live,
+.frame__overlay.is-live {
+  opacity: 1;
+}
+
+/* The rear camera shows the world as it is; only the selfie view gets mirrored. */
+.frame__video.is-flipped,
+.frame__overlay.is-flipped {
+  transform: none;
+}
+
+/* Framing brackets. Their colour, inherited from the frame, is the tracking state. */
+/* Placed on the picture itself, not the frame: App.ts sets --guide-x/y to the letterbox that
+   `object-fit: contain` leaves, so the brackets never straddle the edge of the video. */
+.guide {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border: 0 solid currentColor;
+  pointer-events: none;
+}
+
+.guide--tl {
+  top: calc(var(--guide-y, 0px) + 12px);
+  left: calc(var(--guide-x, 0px) + 12px);
+  border-top-width: 2.5px;
+  border-left-width: 2.5px;
+  border-top-left-radius: 8px;
+}
+
+.guide--tr {
+  top: calc(var(--guide-y, 0px) + 12px);
+  right: calc(var(--guide-x, 0px) + 12px);
+  border-top-width: 2.5px;
+  border-right-width: 2.5px;
+  border-top-right-radius: 8px;
+}
+
+.guide--bl {
+  bottom: calc(var(--guide-y, 0px) + 12px);
+  left: calc(var(--guide-x, 0px) + 12px);
+  border-bottom-width: 2.5px;
+  border-left-width: 2.5px;
+  border-bottom-left-radius: 8px;
+}
+
+.guide--br {
+  bottom: calc(var(--guide-y, 0px) + 12px);
+  right: calc(var(--guide-x, 0px) + 12px);
+  border-bottom-width: 2.5px;
+  border-right-width: 2.5px;
+  border-bottom-right-radius: 8px;
+}
+
+/* --- Idle: the camera is off --- */
+
+.idle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 36px;
+  text-align: center;
+}
+
+.idle[hidden] {
   display: none;
 }
 
-/* The one element that should absorb whatever space the device has. */
-#app.is-running .stage {
-  aspect-ratio: auto;
-  flex: 1;
-  min-height: 0;
-  margin-bottom: 0;
+.idle__mark {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 6px;
 }
 
-#app.is-running .transcript,
-#app.is-running .status {
+.idle__title {
   margin: 0;
+  color: var(--vf-ink);
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
-/* Room for the pinned bar, which is out of flow and would otherwise cover the last panel. */
-#app.is-running {
-  padding-bottom: calc(var(--pad-bottom) + var(--bar));
+.idle__tagline {
+  margin: 0 0 10px;
+  max-width: 24ch;
+  color: var(--vf-ink);
+  font-size: 1rem;
+  line-height: 1.35;
+  text-wrap: balance;
 }
 
-.masthead {
-  display: flex;
+.idle__note {
+  margin: 0;
+  max-width: 32ch;
+  color: var(--vf-muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  text-wrap: balance;
+}
+
+/* --- What the camera sees, in a band above the video: never over the framing --- */
+
+.hud {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 8px 10px;
+  min-height: 8px;
+  padding: max(8px, env(safe-area-inset-top)) 12px 8px;
 }
 
-.masthead__mark {
+.hud__status {
+  justify-self: start;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: var(--vf-chip);
+  color: var(--vf-ink);
+  font-size: 0.86rem;
+  font-weight: 560;
+  line-height: 1.35;
+}
+
+.hud__status:empty {
+  display: none;
+}
+
+.hud__flip {
+  grid-column: 2;
+  display: none;
+  place-items: center;
   width: 44px;
   height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--vf-chip);
+  color: var(--vf-ink);
+  cursor: pointer;
+}
+
+#app.is-running .hud__flip {
+  display: grid;
+}
+
+.hud__flip:disabled {
+  opacity: 0.5;
+}
+
+/* One chip per tracked body part: a tick when it is seen, a cross when it is not. Colour only
+   tells the parts apart, and matches the skeleton drawn on the video. */
+/* One row, always and whole: a second row would come out of the video, and a chip scrolled
+   out of sight is a part whose state nobody can read. */
+.parts {
+  grid-column: 1 / -1;
+  display: none;
+  flex-wrap: nowrap;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+#app.is-running .parts {
+  display: flex;
+}
+
+.part {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
+  gap: 4px;
+  padding: 4px 8px 4px 6px;
+  border-radius: 999px;
+  background: var(--vf-chip);
+  color: var(--vf-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
+  transition: color 0.2s ease;
 }
 
-.masthead__title {
-  font-size: 1.35rem;
+.part__mark {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+/* On a phone five chips side by side do not fit whole: five equal columns, mark over label. */
+@media (max-width: 399px) {
+  #app.is-running .parts {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .part {
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    min-width: 0;
+    padding: 5px 2px 4px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    text-align: center;
+  }
+}
+
+.part__dot {
+  fill: var(--part);
+  opacity: 0.45;
+}
+
+.part__tick,
+.part__cross {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.part__tick {
+  stroke: var(--part);
+}
+
+/* The part colours are pale for a black ground; on white they darken to stay a 3:1 mark. */
+@media (prefers-color-scheme: light) {
+  .part__tick {
+    stroke: color-mix(in srgb, var(--part) 55%, var(--vf-ink));
+  }
+}
+
+.part__cross {
+  stroke: var(--vf-muted);
+}
+
+.part--on {
+  color: var(--vf-ink);
+}
+
+.part--on .part__dot,
+.part--off .part__dot {
+  opacity: 0;
+}
+
+.part--on .part__tick,
+.part--off .part__cross {
+  opacity: 1;
+}
+
+.part__state {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The live guess, over the video. Big because it is read at arm's length. */
+.hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 96px);
+  margin: 0;
+  padding: 6px 22px;
+  border-radius: 999px;
+  background: var(--ov-scrim);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ov-ink);
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Under the video: the text --- */
+
+.caption {
+  padding: 14px 20px 4px;
+}
+
+.transcript {
+  max-height: calc(1.35em * 3);
+  overflow-y: auto;
+  color: var(--vf-ink);
+  font-size: 1.4rem;
+  font-weight: 560;
+  line-height: 1.35;
+  /* A transcript can run long; it must wrap, never scroll the page sideways. */
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: var(--vf-line) transparent;
+}
+
+.transcript:empty::before {
+  content: 'El texto reconocido aparecerá aquí.';
+  color: var(--vf-soft);
+  font-size: 1rem;
+  font-weight: 450;
+}
+
+.caption__edit {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.caption__edit[hidden] {
+  display: none;
+}
+
+.chip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--vf-line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--vf-ink);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip-button:hover {
+  background: var(--vf-hover);
+}
+
+/* --- The bottom bar: tools, and the one primary control --- */
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+}
+
+.controls__tools {
+  justify-self: start;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 64px;
+  min-height: 52px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--vf-muted);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.controls__tools:hover,
+.controls__tools[aria-expanded='true'] {
+  color: var(--vf-ink);
+}
+
+/* A camera's shutter: a ring round a violet face that squares off into "stop". */
+.disc {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--vf-ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.disc__face {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 4px var(--vf-ink);
+}
+
+.disc__face::after {
+  content: '';
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: var(--vf-shutter);
+  transition:
+    width 0.28s var(--ease-out),
+    height 0.28s var(--ease-out),
+    border-radius 0.28s var(--ease-out),
+    background-color 0.2s ease;
+}
+
+.disc:hover .disc__face::after {
+  background: var(--vf-shutter-hover);
+}
+
+#app.is-running .disc__face::after {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.disc__label {
+  font-size: 0.86rem;
   font-weight: 650;
-  letter-spacing: -0.02em;
-  margin: 0;
+  letter-spacing: 0.01em;
 }
 
-.masthead__tagline {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin: 0;
+.disc:disabled {
+  cursor: progress;
 }
+
+.disc:disabled .disc__face {
+  opacity: 0.55;
+}
+
+.controls__balance {
+  justify-self: end;
+}
+
+.hud__flip:focus-visible,
+.chip-button:focus-visible,
+.controls__tools:focus-visible,
+.disc:focus-visible .disc__face {
+  outline: 2px solid var(--vf-focus);
+  outline-offset: 3px;
+}
+
+.disc:focus-visible {
+  outline: none;
+}
+
+/* --- Tools: a sheet over the camera on a phone --- */
+
+.tools {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  /* The top half of the frame stays in sight: reading why a word failed means watching your
+     hand at the same time. */
+  max-height: 52vh;
+  max-height: 52dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--bg);
+  color: var(--text);
+  transform: translateY(105%);
+  transition: transform 0.34s var(--ease-out);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Only when open: a closed sheet's shadow would leak up over the bottom bar. */
+.tools.is-open {
+  transform: none;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
+}
+
+.tools__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  padding: 12px 12px 8px 20px;
+  background: var(--bg);
+}
+
+.tools__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.tools__close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.tools__close:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.tools__body {
+  padding: 0 0 calc(24px + env(safe-area-inset-bottom));
+}
+
+/* --- Wide screens: the tools dock beside the viewfinder --- */
+
+@media (min-width: 960px) {
+  .viewer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
+
+  .viewfinder {
+    position: sticky;
+    top: 0;
+  }
+
+  .frame {
+    margin: 0 16px;
+    border-radius: var(--radius-lg);
+  }
+
+  .hud {
+    padding: 16px 16px 10px;
+  }
+
+  .caption {
+    padding: 16px 28px 4px;
+  }
+
+  .tools {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+    border-left: 1px solid var(--border);
+    transform: none;
+    transition: none;
+  }
+
+  .tools__close {
+    display: none;
+  }
+
+  /* Hidden, not removed: it keeps its grid column, so the disc stays centred. */
+  .controls__tools {
+    visibility: hidden;
+  }
+
+  .tools__head {
+    padding: 22px 24px 10px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tools,
+  .frame,
+  .disc__face::after {
+    transition: none;
+  }
+}
+
+/* --- Sections inside the tools --- */
 
 .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  margin-bottom: var(--gap);
+  border-bottom: 1px solid var(--border);
 }
 
 .card__title {
-  font-size: 1rem;
-  font-weight: 620;
   margin: 0 0 6px;
+  font-size: 1rem;
+  font-weight: 650;
 }
 
 .card__body {
-  color: var(--text-muted);
-  font-size: 0.9rem;
   margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  max-width: 65ch;
+}
+
+.card__body + .card__body {
+  margin-top: 10px;
 }
 
 /*
- * Collapsible card.
- *
- * Everything below the camera is secondary, and open by default it came to 1615 px of a
- * 2624 px page — the storage card alone was taller than the video. `details` rather than a
- * button and a `hidden` class: open/closed state, keyboard operation and the right
- * semantics come with the element, and the summary keeps the headline readable while shut.
+ * Collapsible section. `details` rather than a button and a `hidden` class: open/closed
+ * state, keyboard operation and the right semantics come with the element, and the summary
+ * keeps the headline readable while shut.
  */
-details.card {
-  padding: 0;
-}
-
 .card__summary {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
   gap: 2px 12px;
-  padding: 16px 20px;
-  min-height: 56px;
+  min-height: 64px;
+  padding: 14px 20px;
   cursor: pointer;
   /* Both spellings: the default triangle would sit beside our own chevron. */
   list-style: none;
@@ -192,7 +819,7 @@ details.card {
   display: none;
 }
 
-/* Grid children default to min-width:auto and would push a long headline past the card. */
+/* Grid children default to min-width:auto and would push a long headline past the sheet. */
 .card__summary > * {
   min-width: 0;
 }
@@ -203,7 +830,7 @@ details.card {
 
 .card__note {
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.84rem;
 }
 
 .card__summary::after {
@@ -215,182 +842,42 @@ details.card {
   border-right: 2px solid var(--text-muted);
   border-bottom: 2px solid var(--text-muted);
   transform: translateY(-3px) rotate(45deg);
-  transition: transform 0.2s ease;
+  transition: transform 0.2s var(--ease-out);
 }
 
 details[open] > .card__summary::after {
   transform: translateY(2px) rotate(-135deg);
 }
 
+.card__summary:hover {
+  background: var(--surface);
+}
+
 .card__summary:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--text);
   outline-offset: -2px;
-  border-radius: var(--radius-lg);
 }
 
 .card__content {
-  padding: 0 20px 20px;
+  padding: 2px 20px 22px;
 }
 
 .card__subtitle {
-  font-size: 0.95rem;
-  font-weight: 620;
   margin: 22px 0 4px;
+  font-size: 0.95rem;
+  font-weight: 650;
 }
 
-/* The camera frame. Aspect-ratio rather than a fixed height so it never letterboxes. */
-.stage {
-  position: relative;
-  aspect-ratio: 3 / 4;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  display: grid;
-  place-items: center;
-  margin-bottom: var(--gap);
-}
-
-.stage__placeholder {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  text-align: center;
-  padding: 0 32px;
-}
-
-.stage__video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  /* Mirrored so the user sees themselves as in a mirror; raising the right hand must look
-     like raising the right hand, or aiming a handshape becomes guesswork. */
-  transform: scaleX(-1);
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-
-.stage__video.is-live {
-  opacity: 1;
-}
-
-/* Skeleton layer. Mirrored exactly like the video beneath it, or the hand and its skeleton
-   drift apart the moment either moves. */
-.stage__overlay {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  transform: scaleX(-1);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-}
-
-.stage__overlay.is-live {
-  opacity: 1;
-}
-
-/* The live guess, over the video. Big because it is read at arm's length. */
-.stage__hint {
-  position: absolute;
-  bottom: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
-  padding: 6px 20px;
-  border-radius: 999px;
-  background: rgba(11, 10, 18, 0.72);
-  backdrop-filter: blur(8px);
-  color: #fff;
-  font-size: 1.6rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
-}
-
-.actions--bar {
-  margin-top: 0;
-  /* The first collapsed card sits right under it, and without this they read as one block. */
-  margin-bottom: var(--gap);
-}
-
-/*
- * Switching camera, on the camera. Bottom right rather than top: the body-part chips already
- * own the top edge, and the recognised word sits centred, so this corner is the free one.
- */
-.stage__flip {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 2;
-  display: none;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-  color: var(--text);
-  cursor: pointer;
-}
-
-#app.is-running .stage__flip {
-  display: grid;
-}
-
-.stage__flip:disabled {
-  opacity: 0.5;
-}
-
-.stage__flip:focus-visible {
-  outline: 2px solid var(--brand);
-  outline-offset: 2px;
-}
-
-/*
- * Pinned rather than merely sticky: the diagnostics panel is read *while* the camera runs,
- * and scrolling down to it must not strand the user without a stop button.
- */
-#app.is-running .actions--bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 20;
-  margin: 0 auto;
-  max-width: 560px;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border);
+.card__body--tight {
+  margin-top: 10px;
+  font-size: 0.72rem;
 }
 
 .status {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin: 12px 0 20px;
   min-height: 1.4em;
-}
-
-.transcript {
-  min-height: 96px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  font-size: 1.15rem;
-  /* A transcript can run long; it must wrap, never scroll the page sideways. */
-  overflow-wrap: anywhere;
-}
-
-.transcript:empty::before {
-  content: 'El texto reconocido aparecerá aquí.';
+  margin: 12px 0 0;
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.86rem;
 }
 
 .actions {
@@ -400,35 +887,21 @@ details[open] > .card__summary::after {
   margin-top: var(--gap);
 }
 
-/* Alone it fills the row; beside undo and clear it takes what is left. */
-.button--grow {
-  flex: 1 1 auto;
-}
-
-.actions__edit {
-  display: flex;
-  gap: 10px;
-}
-
-.actions__edit[hidden] {
-  display: none;
-}
-
 .button {
   appearance: none;
+  min-height: 48px;
+  padding: 12px 18px;
   border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 12px 18px;
+  background: var(--text);
+  color: var(--bg);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  background: var(--brand-strong);
-  color: #fff;
-  min-height: 48px;
 }
 
 .button:hover:not(:disabled) {
-  background: var(--brand);
+  background: var(--text-muted);
 }
 
 .button:disabled {
@@ -442,8 +915,18 @@ details[open] > .card__summary::after {
   color: var(--text);
 }
 
+.button--quiet:hover:not(:disabled) {
+  background: var(--surface-raised);
+}
+
+.button--small {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
 .button:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
@@ -451,23 +934,25 @@ details[open] > .card__summary::after {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: var(--brand-soft);
-  color: var(--brand);
-  border-radius: 999px;
   padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--text-soft);
+  color: var(--text);
   font-size: 0.75rem;
   font-weight: 620;
 }
 
 .footnote {
+  margin: 20px 0 0;
+  padding: 0 20px;
   color: var(--text-muted);
-  font-size: 0.78rem;
-  margin-top: 28px;
-  text-align: center;
+  font-size: 0.72rem;
 }
 
-.footnote a {
+.footnote a,
+.card__body a {
   color: inherit;
+  text-underline-offset: 3px;
 }
 
 /* --- Teach-a-sign --- */
@@ -479,24 +964,28 @@ details[open] > .card__summary::after {
 
 .field__label {
   display: block;
-  color: var(--text-muted);
-  font-size: 0.8rem;
   margin-bottom: 6px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
 }
 
 .field__input {
   width: 100%;
-  background: var(--surface-raised);
+  min-height: 48px;
+  padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--surface-raised);
   color: var(--text);
   font: inherit;
-  padding: 12px 14px;
-  min-height: 48px;
+}
+
+.field__input::placeholder {
+  color: var(--text-muted);
 }
 
 .field__input:focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--text);
   outline-offset: 1px;
 }
 
@@ -504,31 +993,25 @@ details[open] > .card__summary::after {
 .takes {
   display: flex;
   gap: 8px;
-  margin: 4px 0 4px;
+  margin: 4px 0;
 }
 
 .take {
   width: 12px;
   height: 12px;
+  border: 1.5px solid var(--text-muted);
   border-radius: 999px;
-  border: 1.5px solid var(--border);
 }
 
 .take--done {
-  background: var(--brand);
-  border-color: var(--brand);
-}
-
-.button--small {
-  min-height: 36px;
-  padding: 6px 12px;
-  font-size: 0.85rem;
+  background: var(--text);
+  border-color: var(--text);
 }
 
 .signs {
-  list-style: none;
   margin: 0;
   padding: 0;
+  list-style: none;
 }
 
 .signs__item {
@@ -550,109 +1033,18 @@ details[open] > .card__summary::after {
 }
 
 .storage {
+  margin: 14px 0 4px;
   font-size: 1.4rem;
   font-weight: 650;
   letter-spacing: -0.02em;
-  margin: 14px 0 4px;
-}
-
-.card__body--tight {
-  font-size: 0.78rem;
-  margin-top: 10px;
-}
-
-/* The rear camera shows the world as it is; only the selfie view gets mirrored. */
-.stage__video.is-flipped,
-.stage__overlay.is-flipped {
-  transform: none;
-}
-
-/* One chip per tracked body part. Colour identifies the part, fill says whether it is
-   currently being seen — so "it is not working" becomes "it cannot see your face". */
-/*
- * Over the video rather than beside it. These say what the camera is currently tracking, so
- * they belong on the camera — and off it they said nothing while costing a whole row.
- */
-.parts {
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
-  transition: opacity 0.25s ease;
-  pointer-events: none;
-}
-
-#app.is-running .parts {
-  opacity: 1;
-}
-
-/* Legible over whatever the camera happens to be pointing at. */
-#app.is-running .part {
-  background: color-mix(in srgb, var(--bg) 72%, transparent);
-  backdrop-filter: blur(8px);
-}
-
-.part {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  opacity: 0.55;
-  transition:
-    opacity 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease;
-}
-
-.part__dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--part);
-  opacity: 0.35;
-  transition: opacity 0.2s ease;
-}
-
-.part--on {
-  opacity: 1;
-  color: var(--text);
-  border-color: color-mix(in srgb, var(--part, currentColor) 55%, transparent);
-}
-
-.part--on .part__dot {
-  opacity: 1;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--part) 25%, transparent);
-}
-
-/* Not detected, while the camera is on: the one state worth flagging in red. */
-.part--off {
-  opacity: 1;
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
-}
-
-.part--off .part__dot {
-  background: var(--danger);
-  opacity: 0.8;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Numbers, not prose: read at a glance on a phone while the camera is running. */
 .diagnostics {
-  margin-top: var(--gap);
   display: grid;
   gap: 6px;
+  margin: 0;
   font-size: 0.9rem;
 }
 
@@ -660,7 +1052,7 @@ details[open] > .card__summary::after {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 6px 10px;
+  padding: 7px 12px;
   border-radius: 10px;
   background: var(--surface-raised);
 }
