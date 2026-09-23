@@ -12,6 +12,13 @@ import {
 } from '@presentation/components/LandmarkOverlay';
 import { StoragePanel } from '@presentation/components/StoragePanel';
 import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
+import {
+  applyThemePreference,
+  followSystemTheme,
+  nextThemePreference,
+  readThemePreference,
+  type ThemePreference,
+} from '@presentation/theme';
 
 declare const __APP_VERSION__: string;
 
@@ -165,7 +172,24 @@ export function renderApp(root: HTMLElement): void {
           </details>
 
           <p class="footnote">
-            v${__APP_VERSION__} · Vocabulario LSE sobre
+            v${__APP_VERSION__}
+            <button class="theme" id="theme" type="button">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <g class="theme__icon" data-for="system">
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />
+                </g>
+                <g class="theme__icon" data-for="light">
+                  <circle cx="12" cy="12" r="3.6" />
+                  <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
+                </g>
+                <g class="theme__icon" data-for="dark">
+                  <path d="M19.5 14.2A7.8 7.8 0 0 1 9.8 4.5a7.8 7.8 0 1 0 9.7 9.7z" />
+                </g>
+              </svg>
+            </button>
+            · Vocabulario LSE sobre
             <a href="https://zenodo.org/records/13691887" rel="noreferrer">SWL-LSE</a> (CC-BY-4.0) y
             <a href="https://zenodo.org/records/10234465" rel="noreferrer">LSE-Health-UVigo</a>
             (CC-BY-NC-4.0) · el vídeo no sale de tu dispositivo:
@@ -186,6 +210,28 @@ export function renderApp(root: HTMLElement): void {
   const edit = must<HTMLElement>(root, '#edit');
   const frame = must<HTMLElement>(root, '#frame');
   const toggleLabel = must<HTMLElement>(root, '#toggle-label');
+
+  const themeButton = must<HTMLButtonElement>(root, '#theme');
+  const THEME_NAMES: Record<ThemePreference, string> = {
+    system: 'automático',
+    light: 'claro',
+    dark: 'oscuro',
+  };
+  let theme = readThemePreference();
+  const showTheme = () => {
+    themeButton.dataset.pref = theme;
+    const label = `Tema ${THEME_NAMES[theme]}. Cambiar a ${THEME_NAMES[nextThemePreference(theme)]}`;
+    themeButton.setAttribute('aria-label', label);
+    themeButton.title = label;
+  };
+  themeButton.addEventListener('click', () => {
+    theme = nextThemePreference(theme);
+    applyThemePreference(theme);
+    showTheme();
+  });
+  applyThemePreference(theme);
+  followSystemTheme(() => theme);
+  showTheme();
 
   // A sheet over the camera on a phone, a column beside it on a wide screen. Closed, it is
   // inert, so its controls drop out of the tab order and the screen reader alike.
