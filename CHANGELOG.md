@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.17.0](https://github.com/Endika/esku/compare/v1.16.2...v1.17.0) (2026-09-23)
+
+
+### Features
+
+* redesign the reading screen as a camera viewfinder ([8f4d47a](https://github.com/Endika/esku/commit/8f4d47a7473dcb19aa1ad03a9bb0be333dcfd297))
+
 ## [1.16.2](https://github.com/Endika/esku/compare/v1.16.1...v1.16.2) (2026-09-16)
 
 
