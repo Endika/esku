@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.18.0](https://github.com/Endika/esku/compare/v1.17.0...v1.18.0) (2026-09-23)
+
+
+### Features
+
+* add a light/dark theme toggle beside the version ([f3afdf3](https://github.com/Endika/esku/commit/f3afdf36455155ee357c512ea60cfc7ad0ba9480))
+
 ## [1.17.0](https://github.com/Endika/esku/compare/v1.16.2...v1.17.0) (2026-09-23)
 
 
