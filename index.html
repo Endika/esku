@@ -7,6 +7,18 @@
     <link rel="apple-touch-icon" href="apple-touch-icon-180x180.png" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000" />
+    <script>
+      (() => {
+        var theme;
+        try {
+          theme = localStorage.getItem('esku:theme');
+        } catch (_) {}
+        if (theme !== 'light' && theme !== 'dark') {
+          theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
     <title>Esku — Reconoce signos de LSE</title>
     <meta
       name="description"

@@ -1,9 +1,9 @@
 /*
  * Esku design tokens.
  *
- * Everything follows the system scheme, light or dark, except the picture itself: while the
- * camera runs the video frame goes black, because the letterbox around a feed has to recede
- * whatever the page around it does. What is drawn over the video (brackets, the live guess)
+ * Everything follows the scheme on <html data-theme>, the system's unless the footnote's toggle
+ * pinned one, except the picture itself: while the camera runs the video frame goes black,
+ * because the letterbox around a feed has to recede whatever the page around it does. What is drawn over the video (brackets, the live guess)
  * uses the on-video family, which never changes with the scheme.
  */
 :root {
@@ -53,29 +53,27 @@
   color-scheme: dark;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f6f5fa;
-    --surface: #ffffff;
-    --surface-raised: #f0eef7;
-    --border: rgba(24, 20, 45, 0.12);
-    --text: #17142b;
-    --text-muted: #57526f;
-    --text-soft: rgba(23, 20, 43, 0.1);
+:root[data-theme='light'] {
+  --bg: #f6f5fa;
+  --surface: #ffffff;
+  --surface-raised: #f0eef7;
+  --border: rgba(24, 20, 45, 0.12);
+  --text: #17142b;
+  --text-muted: #57526f;
+  --text-soft: rgba(23, 20, 43, 0.1);
 
-    --vf-bg: #fff;
-    --vf-ink: #131318;
-    --vf-muted: rgba(19, 19, 24, 0.7);
-    --vf-faint: rgba(19, 19, 24, 0.28);
-    --vf-soft: rgba(19, 19, 24, 0.6);
-    --vf-line: rgba(19, 19, 24, 0.14);
-    --vf-chip: #f1f1f4;
-    --vf-well: #eef0f3;
-    --vf-focus: #131318;
-    --vf-hover: rgba(19, 19, 24, 0.05);
-    --danger: #c0262d;
-    color-scheme: light;
-  }
+  --vf-bg: #fff;
+  --vf-ink: #131318;
+  --vf-muted: rgba(19, 19, 24, 0.7);
+  --vf-faint: rgba(19, 19, 24, 0.28);
+  --vf-soft: rgba(19, 19, 24, 0.6);
+  --vf-line: rgba(19, 19, 24, 0.14);
+  --vf-chip: #f1f1f4;
+  --vf-well: #eef0f3;
+  --vf-focus: #131318;
+  --vf-hover: rgba(19, 19, 24, 0.05);
+  --danger: #c0262d;
+  color-scheme: light;
 }
 
 * {
@@ -147,11 +145,9 @@ body {
 
 /* On white, a black block edge to edge reads as a hole; inset and rounded it reads as a
    window onto the camera. */
-@media (prefers-color-scheme: light) {
-  .frame {
-    margin: 0 12px;
-    border-radius: var(--radius-lg);
-  }
+[data-theme='light'] .frame {
+  margin: 0 12px;
+  border-radius: var(--radius-lg);
 }
 
 /* Three readable steps: nothing seen stays dim, a hand turns them white, a framed body yellow. */
@@ -422,10 +418,8 @@ body {
 }
 
 /* The part colours are pale for a black ground; on white they darken to stay a 3:1 mark. */
-@media (prefers-color-scheme: light) {
-  .part__tick {
-    stroke: color-mix(in srgb, var(--part) 55%, var(--vf-ink));
-  }
+[data-theme='light'] .part__tick {
+  stroke: color-mix(in srgb, var(--part) 55%, var(--vf-ink));
 }
 
 .part__cross {
@@ -947,6 +941,45 @@ details[open] > .card__summary::after {
   padding: 0 20px;
   color: var(--text-muted);
   font-size: 0.72rem;
+}
+
+/* Small enough to sit in the footnote's line, still a 24px target. */
+.theme {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 1px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    color 0.2s var(--ease-out),
+    background-color 0.2s var(--ease-out);
+}
+
+.theme:hover {
+  background: var(--text-soft);
+  color: var(--text);
+}
+
+.theme:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+
+.theme__icon {
+  display: none;
+}
+
+.theme[data-pref='system'] [data-for='system'],
+.theme[data-pref='light'] [data-for='light'],
+.theme[data-pref='dark'] [data-for='dark'] {
+  display: inline;
 }
 
 .footnote a,
