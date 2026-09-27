@@ -23,9 +23,6 @@ export default defineConfig(({ command }) => ({
       '@': path.resolve(import.meta.dirname, 'src'),
     },
   },
-  optimizeDeps: {
-    exclude: ['onnxruntime-web'],
-  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
