@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.19.0](https://github.com/Endika/esku/compare/v1.18.0...v1.19.0) (2026-09-27)
+
+
+### Features
+
+* add a Deletrear switch that reads fingerspelled letters ([294a800](https://github.com/Endika/esku/commit/294a8003aa6234b2edb7317e414a8d501cdcbf0a))
+
+
+### Bug Fixes
+
+* refuse damaged model files and say when face or body tracking did not load ([682a7b5](https://github.com/Endika/esku/commit/682a7b5235310f6b2d1ebc7d6429f55fb064fa63))
+
 ## [1.18.0](https://github.com/Endika/esku/compare/v1.17.0...v1.18.0) (2026-09-23)
 
 
