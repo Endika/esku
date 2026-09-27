@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.1](https://github.com/Endika/esku/compare/v1.19.0...v1.19.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* say continuous signing gets about 4 in 10 signs right, as measured ([c624224](https://github.com/Endika/esku/commit/c6242243f9f2697d863a166d81da4a071a38206a))
+
 ## [1.19.0](https://github.com/Endika/esku/compare/v1.18.0...v1.19.0) (2026-09-27)
 
 
