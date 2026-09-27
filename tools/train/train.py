@@ -1,4 +1,4 @@
-"""Train the LSE vocabulary head and export it to ONNX.
+"""Train the LSE vocabulary head and export it as flat float32 weights plus a manifest.
 
 Reports accuracy on SWL-LSE's own held-out test split, never on data the model trained on.
 The number this prints is the number the README is allowed to claim.

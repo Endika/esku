@@ -4,7 +4,7 @@ import type { RawScore, SignatureProfile } from '../value-objects/RecognitionDia
 
 /**
  * The single port every recognition engine implements, so the application layer never
- * knows whether an answer came from a trained ONNX head, a geometric handshape table or
+ * knows whether an answer came from a trained GRU, a geometric handshape table or
  * the user's own taught examples.
  *
  * `classify` takes a window rather than a frame because dynamic signs only exist over

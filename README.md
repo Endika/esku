@@ -26,7 +26,7 @@ classifiers, meaningful use of space — and Esku reads a *sequence of signs*, n
 Sign `[YO] [CABEZA] [DOLOR]` and you get "yo cabeza dolor", not "me duele la cabeza".
 
 Continuous sentence-level sign language translation is an open research problem. Treating
-word-level output honestly is a design decision, not a missing feature.
+word-level output honestly is a design decision.
 
 ### How good is the vocabulary model, really
 
@@ -53,7 +53,7 @@ What is left is not a threshold problem. From 0.30 to 0.80 the gate halves recal
 pause babble far less, because the negatives that would fix the rest cannot be labelled here:
 only 101 sign types are annotated against the 90-150 signs a minute of fluent discourse, so a
 window inside a sentence that matches no gloss is usually a real sign nobody wrote down. This is
-the honest reason the transcript is editable and the UI says "useful, not authoritative".
+the honest reason the transcript is editable and the UI asks you to check it before trusting it.
 
 The scope is narrow on purpose: **51 health-domain signs scored inside a 286-sign model**. It does
 not extrapolate. Recognising isolated signs over 300 classes, over the ~8,000 of a full LSE
@@ -77,10 +77,10 @@ Every input was measured rather than assumed. Starting from hands alone:
 | + **torso and head** orientation | 0.729 | 0.865 |
 | + **facial expression**, 6 scalars | **0.741** | **0.870** |
 
-Rejected, with numbers rather than opinions: frame-to-frame motion deltas (0.666), raw face
-coordinates instead of derived ratios (0.702), input augmentation (0.699). Dropping depth
-entirely costs 0.003 — MediaPipe's `z` is inferred from one camera rather than measured, so
-it carries far less than it looks like it should.
+Rejected, with numbers: frame-to-frame motion deltas (0.666), raw face coordinates instead of
+derived ratios (0.702), input augmentation (0.699). Dropping depth entirely costs 0.003 —
+MediaPipe's `z` is inferred from one camera rather than measured, so it carries far less than it
+looks like it should.
 
 Why the body helps so much: "hand at chin height" is a fixed number in body coordinates and
 a moving one in image coordinates. Normalising against shoulder width makes it invariant to
@@ -90,9 +90,11 @@ Why six face scalars beat sixty face coordinates: with ~27 examples per class, c
 the model would have to derive eyebrow-raise and mouth-openness from are capacity spent
 memorising faces.
 
-Those numbers come from SWL-LSE's own train/val/test split, never from data the model saw.
-`tools/train/train.py` prints them on every run and writes them into the shipped manifest, so
-the figure in this README cannot drift from the model that is actually deployed.
+Those numbers come from SWL-LSE's own train/val/test split, never from data the model saw, one
+seed each on the earlier 238-sign model trained on SWL-LSE alone. Over four seeds the face row's
+gain turns out to be seed noise; `tools/train/README.md` has the spread.
+`tools/train/train.py` prints the test figures on every run and writes them into the shipped
+manifest, which is where the 70% and 86% above come from.
 
 **There is no inference runtime.** onnxruntime-web needs 13 MB of WASM to run a 2.4 MB model,
 and on GitHub Pages it cannot even use threads — Pages sends no COOP/COEP headers. The
@@ -114,7 +116,7 @@ src/
     recognition/   segmentation, stabilisation, ISignClassifier port
     transcript/    the running text
   application/     use cases, orchestrating ports
-  infrastructure/  adapters: MediaPipe camera, ONNX runtime, IndexedDB
+  infrastructure/  adapters: MediaPipe camera, hand-written GRU, IndexedDB
   presentation/    UI
   bootstrap/       Container — the only place adapters meet use cases
 ```
@@ -171,9 +173,10 @@ camera permission, so a third party must not be able to serve executable code in
 - **WASM** is staged from `node_modules` by `scripts/copy-wasm.mjs`, run automatically before
   `dev` and `build`. Not committed: 22 MB in every clone, and a committed copy can drift from
   the `@mediapipe/tasks-vision` version that loads it. `public/wasm/` is gitignored.
-- **`hand_landmarker.task`** (7.5 MB) is committed, since it is not published on npm.
+- **`hand_landmarker.task`** (7.5 MB), **`pose_landmarker_lite.task`** (5.5 MB) and
+  **`face_landmarker.task`** (3.6 MB) are committed, since they are not published on npm.
 
-Neither is precached by the service worker. Together they are ~29 MB, and precaching would
+None of it is precached by the service worker. Together it is ~39 MB, and precaching would
 put that download in front of the first paint; they are cached on first use instead, after
 which the app is fully offline.
 

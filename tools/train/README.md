@@ -1,7 +1,7 @@
 # Training the LSE vocabulary head
 
 Run offline, once, on a machine with the dataset. CI never runs this; the app only ever
-loads the exported `.onnx` from `public/models/`.
+loads the exported weights (`.bin` plus a `.json` manifest) from `public/models/`.
 
 ## Dataset
 
@@ -22,15 +22,15 @@ curl -L -o data/ANNOTATIONS.zip \
 
 ### Re-downloading, so deleting is reversible
 
-`data/uvigo/` holds ~18.6 GB of corpus archives. They are safe to delete when disk is tight,
+`data/uvigo/` holds ~19.8 GB of corpus archives. They are safe to delete when disk is tight,
 but only because this table exists: without it, "safe to delete" means "safe to lose", and
 finding the right Zenodo record again is the part nobody remembers.
 
 | file | GB | record | needed for |
 | --- | ---: | --- | --- |
-| `RAW_KPS.zip` | 6.9 | [`10.5281/zenodo.15797079`][fs] | `lsefs_dataset.py` — the fingerspelling model |
-| `PROC_KPS.zip` | 6.9 | [`10.5281/zenodo.15797079`][fs] | nothing in the pipeline; see below |
-| `Videos-LSE-Health-UVigo.zip` | 4.8 | [`10.5281/zenodo.10234465`][h] | `health_extract.py` only — the landmark cache it builds already exists |
+| `RAW_KPS.zip` | 7.3 | [`10.5281/zenodo.15797079`][fs] | `lsefs_dataset.py` — the fingerspelling model |
+| `PROC_KPS.zip` | 7.4 | [`10.5281/zenodo.15797079`][fs] | nothing in the pipeline; see below |
+| `Videos-LSE-Health-UVigo.zip` | 5.1 | [`10.5281/zenodo.10234465`][h] | `health_extract.py` only — not needed again once its landmark cache is built |
 | `10234465_ELAN-…zip`, `.xlsx` | 0.002 | [`10.5281/zenodo.10234465`][h] | the annotations every LSE-Health bench reads |
 
 [fs]: https://doi.org/10.5281/zenodo.15797079
@@ -66,8 +66,8 @@ The 300 labels contain variants of the same concept (`AZUCAR`, `AZUCAR2`, `AZUCA
 
 Drop `#N/A`, then merge on the concept id produced by `conceptIdOf` in
 `src/domain/recognition/value-objects/Gloss.ts` — strip `(…)` markers and trailing digits.
-This lands around 180–200 classes instead of 300, which both reads better in a transcript
-and trains better: fewer classes, more examples each.
+This lands at 238 classes instead of 300, which both reads better in a transcript and trains
+better: fewer classes, more examples each.
 
 Keep the concept mapping in the exported label file so the app can name what it predicts.
 
@@ -135,8 +135,8 @@ benchmark and, once cut into windows, the missing training set — so the split 
 keep those two uses apart.
 
 The corpus is CC BY-NC on Zenodo (DOI `10.5281/zenodo.10234465`) while the reply that pointed us
-at it said CC BY; until that is settled, measure locally and do not publish weights derived from
-it. Nothing from it is committed: `data/` is gitignored.
+at it said CC BY; until that is settled, the weights derived from it ship under the stricter
+CC BY-NC (`public/models/LICENSE.md`). Nothing else from it is committed: `data/` is gitignored.
 
 | script | what it answers |
 | --- | --- |
@@ -203,8 +203,8 @@ own advice: they are articulations that differ from the nominal one and would sm
 **Scoring includes them.** `health_words.py:normalize` strips the `*` and treats the gloss like
 any other. That is deliberate, and it makes the published figure the *strictest* of the
 available policies rather than a flattering one — the 472 `SIM` occurrences ask the model for a
-label belonging to a sign it is not being shown. Measured on the held-out signers at the shipped
-floor and gate, everything else equal:
+label belonging to a sign it is not being shown. Measured on the held-out signers at floor 850
+and gate 0.60, the pair shipped at the time, everything else equal:
 
 | policy | scorable instances | word recall |
 | --- | ---: | ---: |
@@ -541,8 +541,9 @@ training up 2.4x and cost 0.036 of CER, because length correlates with word leng
 batches stopped being diverse. Shuffling within windows eight batches wide keeps the speed and
 gives the accuracy back.
 
-Final: **validation CER 0.255, sd 0.005 over seeds 7/13/29/41.** Tight enough that one run means
-something here, unlike the 0.024 spread the vocabulary head showed.
+Final, before the hand-selection retrain above took it to 0.201: **validation CER 0.255, sd 0.005
+over seeds 7/13/29/41.** Tight enough that one run means something here, unlike the 0.024 spread
+the vocabulary head showed.
 
 ### The letters it does not know
 

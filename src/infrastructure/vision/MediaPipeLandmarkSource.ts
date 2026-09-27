@@ -103,7 +103,7 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
 
   /**
    * Downloads and initialises the engine. Separate from `start` so the UI can show download
-   * progress for the ~29 MB before asking for the camera — asking for permission and then
+   * progress for the ~17 MB before asking for the camera — asking for permission and then
    * making the user wait reads as a hang.
    */
   async load(): Promise<void> {

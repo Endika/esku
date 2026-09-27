@@ -380,7 +380,7 @@ export function renderApp(root: HTMLElement): void {
     }
 
     toggle.disabled = true;
-    // The engine is ~29 MB on first run and cached after; say so rather than look frozen.
+    // The engine is ~20 MB on first run and cached after; say so rather than look frozen.
     status.textContent = 'Preparando el motor de reconocimiento…';
     try {
       // Both engines load before the camera opens, so the first sign is already recognisable
