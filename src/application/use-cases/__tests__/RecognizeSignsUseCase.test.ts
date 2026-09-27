@@ -25,38 +25,6 @@ class ScriptedSource implements ILandmarkSource {
 }
 
 /**
- * The per-frame engine, held open on demand.
- *
- * This is what actually blocks in the app: it runs on every frame, and on a phone the
- * MediaPipe passes behind it are slow enough that a sign routinely finishes mid-call.
- */
-class SlowFrameClassifier implements ISignClassifier {
-  readonly id = 'slow-frame';
-  readonly granularity = 'frame' as const;
-  blocking = false;
-  private release: (() => void) | null = null;
-
-  isReady(): boolean {
-    return true;
-  }
-  async load(): Promise<void> {}
-
-  async classify(): Promise<readonly SignCandidate[]> {
-    if (this.blocking) {
-      await new Promise<void>((resolve) => {
-        this.release = resolve;
-      });
-    }
-    return [];
-  }
-
-  finish(): void {
-    this.release?.();
-    this.release = null;
-  }
-}
-
-/**
  * The vocabulary engine, counting how often it is actually consulted.
  *
  * `confidence` is what it answers with, and `lastScores` mirrors the real engine: the raw
@@ -73,6 +41,8 @@ class CountingWindowClassifier implements ISignClassifier {
   abstain = false;
   lastAbstained = false;
   lastScores: readonly { text: string; confidence: number }[] = [];
+  blocking = false;
+  private release: (() => void) | null = null;
 
   isReady(): boolean {
     return true;
@@ -81,6 +51,11 @@ class CountingWindowClassifier implements ISignClassifier {
 
   async classify(): Promise<readonly SignCandidate[]> {
     this.calls += 1;
+    if (this.blocking) {
+      await new Promise<void>((resolve) => {
+        this.release = resolve;
+      });
+    }
     this.lastAbstained = this.abstain;
     if (this.abstain) {
       this.lastScores = [{ text: 'sin signo', confidence: this.confidence }];
@@ -89,6 +64,33 @@ class CountingWindowClassifier implements ISignClassifier {
     this.lastScores = [{ text: 'dolor', confidence: this.confidence }];
     if (this.confidence < this.floor) return [];
     return [{ gloss: createGloss('DOLOR'), confidence: this.confidence, source: 'vocabulary' }];
+  }
+
+  finish(): void {
+    this.release?.();
+    this.release = null;
+  }
+}
+
+/** The alphabet engine: a letter on every frame with a hand, and a record of being reset. */
+class LetterClassifier implements ISignClassifier {
+  readonly id = 'letters';
+  readonly granularity = 'frame' as const;
+  calls = 0;
+  resets = 0;
+
+  isReady(): boolean {
+    return true;
+  }
+  async load(): Promise<void> {}
+  reset(): void {
+    this.resets += 1;
+  }
+
+  async classify(window: readonly LandmarkFrame[]): Promise<readonly SignCandidate[]> {
+    this.calls += 1;
+    if (window[0]?.hands.length === 0) return [];
+    return [{ gloss: createGloss('A'), confidence: 0.9, source: 'alphabet' }];
   }
 }
 
@@ -118,41 +120,42 @@ function scriptedSign(moving = 40, still = 6) {
   ];
 }
 
+/** A second sign, well after the first, so the segmenter reads it as its own. */
+function laterSign() {
+  return scriptedSign().map((frame) => ({ ...frame, timestampMs: frame.timestampMs + 5000 }));
+}
+
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe('RecognizeSignsUseCase', () => {
   let source: ScriptedSource;
-  let slow: SlowFrameClassifier;
   let vocabulary: CountingWindowClassifier;
   let recognize: RecognizeSignsUseCase;
 
   beforeEach(() => {
     source = new ScriptedSource();
-    slow = new SlowFrameClassifier();
     vocabulary = new CountingWindowClassifier();
-    recognize = new RecognizeSignsUseCase(source, [slow, vocabulary]);
+    recognize = new RecognizeSignsUseCase(source, [vocabulary]);
   });
 
-  it('does not lose a sign that finishes while the per-frame engine is busy', async () => {
-    // The bug this exists for: a window closes on exactly one frame, and that frame arriving
-    // mid-classification used to hit `if (busy) return` and be discarded outright. On a
-    // phone running three MediaPipe models per frame that is the common case, not the rare
-    // one — and the whole sign was lost silently. The app looked simply dead.
+  it('does not lose a sign that finishes while the previous one is still being read', async () => {
+    // A window closes on exactly one frame, and that frame arriving mid-classification used
+    // to hit `if (busy) return` and be discarded outright — the whole sign lost silently.
     await recognize.start(() => {});
 
-    slow.blocking = true;
-    source.push(buildFrame(0, buildHand()));
-    await tick();
-
-    // The sign now completes entirely while that first call is still in flight.
+    vocabulary.blocking = true;
     for (const frame of scriptedSign()) source.push(frame);
-    expect(vocabulary.calls).toBe(0);
+    await tick();
+    expect(vocabulary.calls).toBe(1);
 
-    slow.blocking = false;
-    slow.finish();
+    for (const frame of laterSign()) source.push(frame);
+    vocabulary.blocking = false;
+    vocabulary.finish();
+    await tick();
+    source.push(buildFrame(9000, buildHand()));
     await tick();
 
-    expect(vocabulary.calls).toBe(1);
+    expect(vocabulary.calls).toBe(2);
   });
 
   it('transcribes a recognised sign as a word', async () => {
@@ -269,16 +272,68 @@ describe('RecognizeSignsUseCase', () => {
 
   it('drops the queued sign on stop, so it cannot surface in the next session', async () => {
     await recognize.start(() => {});
-    slow.blocking = true;
-    source.push(buildFrame(0, buildHand()));
-    await tick();
+    vocabulary.blocking = true;
     for (const frame of scriptedSign()) source.push(frame);
+    await tick();
+    for (const frame of laterSign()) source.push(frame);
 
     recognize.stop();
-    slow.blocking = false;
-    slow.finish();
+    vocabulary.blocking = false;
+    vocabulary.finish();
+    await recognize.start(() => {});
+    source.push(buildFrame(9000, buildHand()));
     await tick();
 
-    expect(vocabulary.calls).toBe(0);
+    expect(vocabulary.calls).toBe(1);
+  });
+
+  describe('spelling', () => {
+    let letters: LetterClassifier;
+
+    beforeEach(() => {
+      letters = new LetterClassifier();
+      recognize = new RecognizeSignsUseCase(source, [letters, vocabulary]);
+    });
+
+    it('writes no letters while reading words, and never asks the alphabet', async () => {
+      await recognize.start(() => {});
+      for (const frame of scriptedSign()) source.push(frame);
+      await tick();
+
+      expect(letters.calls).toBe(0);
+      expect(recognize.current.toText()).toBe('Dolor');
+    });
+
+    it('writes letters and no words while spelling', async () => {
+      await recognize.start(() => {});
+      recognize.setSpelling(true);
+      for (const frame of scriptedSign()) {
+        source.push(frame);
+        await tick();
+      }
+
+      expect(vocabulary.calls).toBe(0);
+      expect(recognize.current.toText()).toBe('A');
+    });
+
+    it('starts the alphabet afresh each time spelling is switched on', async () => {
+      recognize.setSpelling(true);
+      recognize.setSpelling(false);
+      recognize.setSpelling(true);
+
+      expect(letters.resets).toBe(3);
+    });
+
+    it('drops a sign half-read by the vocabulary when spelling starts', async () => {
+      await recognize.start(() => {});
+      const [moving, still] = [scriptedSign().slice(0, 40), scriptedSign().slice(40)];
+      for (const frame of moving) source.push(frame);
+      recognize.setSpelling(true);
+      recognize.setSpelling(false);
+      for (const frame of still) source.push(frame);
+      await tick();
+
+      expect(vocabulary.calls).toBe(0);
+    });
   });
 });

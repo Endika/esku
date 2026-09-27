@@ -539,7 +539,8 @@ body {
   padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
 }
 
-.controls__tools {
+.controls__tools,
+.controls__spell {
   justify-self: start;
   display: inline-flex;
   flex-direction: column;
@@ -559,8 +560,25 @@ body {
 }
 
 .controls__tools:hover,
-.controls__tools[aria-expanded='true'] {
+.controls__tools[aria-expanded='true'],
+.controls__spell:hover {
   color: var(--vf-ink);
+}
+
+.controls__spell {
+  justify-self: end;
+}
+
+/* On is a filled chip, not a colour shift alone. */
+.controls__spell[aria-pressed='true'] {
+  background: var(--vf-chip);
+  box-shadow: inset 0 0 0 1px var(--vf-line);
+  color: var(--vf-ink);
+}
+
+.controls__spell:disabled {
+  cursor: progress;
+  opacity: 0.55;
 }
 
 /* A camera's shutter: a ring round a violet face that squares off into "stop". */
@@ -623,13 +641,10 @@ body {
   opacity: 0.55;
 }
 
-.controls__balance {
-  justify-self: end;
-}
-
 .hud__flip:focus-visible,
 .chip-button:focus-visible,
 .controls__tools:focus-visible,
+.controls__spell:focus-visible,
 .disc:focus-visible .disc__face {
   outline: 2px solid var(--vf-focus);
   outline-offset: 3px;

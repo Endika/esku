@@ -72,6 +72,12 @@ export class RecognizeSignsUseCase {
    */
   private readonly windowStabilizer = new CandidateStabilizer(1, 0.45);
   private transcript = new Transcript();
+  /**
+   * Letters or words, never both. The alphabet engine was trained on fingerspelling alone and
+   * writes a letter into 61% of vocabulary signs, and a spelled word is movement the
+   * vocabulary reads as a sign; either engine left on during the other's input writes noise.
+   */
+  private spelling = false;
   private listener: RecognitionListener | null = null;
   /** Guards against overlapping async classify calls piling up behind a slow frame. */
   private busy = false;
@@ -133,6 +139,20 @@ export class RecognizeSignsUseCase {
     this.frameStabilizer.release();
     this.windowStabilizer.release();
     this.emit([], EMPTY_FRAME);
+  }
+
+  get isSpelling(): boolean {
+    return this.spelling;
+  }
+
+  setSpelling(on: boolean): void {
+    if (on === this.spelling) return;
+    this.spelling = on;
+    this.pendingWindow = null;
+    this.segmenter.reset();
+    this.frameStabilizer.release();
+    this.windowStabilizer.release();
+    for (const engine of this.classifiers) engine.reset?.();
   }
 
   get current(): Transcript {
@@ -202,7 +222,7 @@ export class RecognizeSignsUseCase {
 
       const pending = this.pendingWindow;
       this.pendingWindow = null;
-      if (pending) {
+      if (pending && !this.spelling) {
         this.vocabularyInvocations += 1;
         const words = await this.classifyWindow(pending);
         this.lastRawTop = this.collectRawScores();
@@ -232,6 +252,7 @@ export class RecognizeSignsUseCase {
     granularity: 'frame' | 'window',
     window: readonly LandmarkFrame[],
   ): Promise<readonly SignCandidate[]> {
+    if ((granularity === 'frame') !== this.spelling) return [];
     const engines = this.classifiers.filter(
       (engine) => engine.granularity === granularity && engine.isReady(),
     );

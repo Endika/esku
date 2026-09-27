@@ -21,6 +21,7 @@ export class Container {
   readonly manageCustomSigns = new ManageCustomSignsUseCase(this.customSigns);
   readonly engineStorage: EngineCacheStorage;
   readonly vocabulary: VocabularySignClassifier;
+  readonly alphabet: CtcAlphabetClassifier;
   readonly classifiers: readonly ISignClassifier[];
   readonly recognize: RecognizeSignsUseCase;
 
@@ -46,7 +47,12 @@ export class Container {
       `${base}models/lse-vocabulary.bin`,
     );
 
-    this.classifiers = [new CtcAlphabetClassifier(), this.vocabulary, this.taught];
+    this.alphabet = new CtcAlphabetClassifier(
+      `${base}models/lse-alphabet.json`,
+      `${base}models/lse-alphabet.bin`,
+    );
+
+    this.classifiers = [this.alphabet, this.vocabulary, this.taught];
     this.recognize = new RecognizeSignsUseCase(this.source, this.classifiers);
   }
 }

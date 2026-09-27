@@ -122,7 +122,13 @@ export function renderApp(root: HTMLElement): void {
             <span class="disc__face" aria-hidden="true"></span>
             <span class="disc__label" id="toggle-label">Empezar a leer</span>
           </button>
-          <span class="controls__balance" aria-hidden="true"></span>
+          <button class="controls__spell" id="spell" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor"
+                 stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 18 7.5 6 12 18M4.7 14h5.6" /><circle cx="17" cy="15" r="3" /><path d="M20 12v6" />
+            </svg>
+            <span>Deletrear</span>
+          </button>
         </nav>
       </section>
 
@@ -168,7 +174,8 @@ export function renderApp(root: HTMLElement): void {
               </p>
               <p class="card__body">
                 <strong>Alfabeto dactilológico:</strong> para deletrear cualquier palabra fuera de ese
-                vocabulario. Intenta las 27 letras y acierta unas mejor que otras: desconfía de
+                vocabulario. Pulsa <strong>Deletrear</strong> antes: mientras está activo solo lee
+                letras, y los signos esperan a que lo apagues. Intenta las 27 letras y acierta unas mejor que otras: desconfía de
                 <strong>${WEAK_LETTERS.join(', ')}</strong>, que salen bien menos de una de cada tres
                 veces porque apenas aparecen en el corpus con el que se entrenó.
               </p>
@@ -352,7 +359,7 @@ export function renderApp(root: HTMLElement): void {
   const describeTracking = (hands: number, hasCandidate: boolean): [OverlayState, string] => {
     if (hands === 0) return ['searching', 'Buscando la mano. Ponla dentro del encuadre.'];
     if (!hasCandidate) return ['tracking', 'Mano detectada. Esa forma todavía no la conozco.'];
-    return ['recognised', 'Leyendo.'];
+    return ['recognised', recognize.isSpelling ? 'Deletreando.' : 'Leyendo.'];
   };
 
   toggle.addEventListener('click', async () => {
@@ -408,6 +415,28 @@ export function renderApp(root: HTMLElement): void {
     }
   });
 
+  // Loaded on first use, not with the vocabulary: most sessions never spell.
+  const spell = must<HTMLButtonElement>(root, '#spell');
+  spell.addEventListener('click', async () => {
+    const on = !recognize.isSpelling;
+    if (on && !container.alphabet.isReady()) {
+      spell.disabled = true;
+      status.textContent = 'Preparando el alfabeto…';
+      try {
+        await container.alphabet.load();
+      } catch (error) {
+        status.textContent = 'No se pudo cargar el alfabeto. Recarga la página para reintentarlo.';
+        console.error(error);
+        return;
+      } finally {
+        spell.disabled = false;
+      }
+    }
+    recognize.setSpelling(on);
+    spell.setAttribute('aria-pressed', String(on));
+    status.textContent = on ? 'Deletreando: solo leo letras.' : 'Leyendo signos.';
+  });
+
   must<HTMLButtonElement>(root, '#transcript-undo').addEventListener('click', () => {
     recognize.undo();
     render(recognize.current.toText(), []);
@@ -456,7 +485,11 @@ export function renderApp(root: HTMLElement): void {
     // offline — the models were saved and the WASM was not.
     preload: async (onProgress) => {
       await container.engineStorage.warm(onProgress);
-      await Promise.all([container.source.load(), container.vocabulary.load()]);
+      await Promise.all([
+        container.source.load(),
+        container.vocabulary.load(),
+        container.alphabet.load(),
+      ]);
     },
   });
 
