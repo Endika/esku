@@ -163,9 +163,6 @@ npm run build        # tsc && vite build
 npm run icons        # regenerate PWA icons from public/favicon.svg
 ```
 
-**The camera cannot be tested under WSL2** — no device access. Use a browser on the host OS
-or a real phone against the dev server over the network.
-
 ### Engine assets
 
 The recognition engine is served same-origin from `public/`, never a CDN — the page holds
