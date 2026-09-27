@@ -40,6 +40,8 @@ describe('engineUrls', () => {
       'pose_landmarker',
       'face_landmarker',
       'lse-vocabulary.bin',
+      'lse-alphabet.json',
+      'lse-alphabet.bin',
     ]) {
       expect(urls.some((url) => url.includes(model))).toBe(true);
     }

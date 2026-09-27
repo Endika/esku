@@ -69,6 +69,8 @@ export class EngineCacheStorage {
       `${this.base}models/face_landmarker.task`,
       `${this.base}models/lse-vocabulary.json`,
       `${this.base}models/lse-vocabulary.bin`,
+      `${this.base}models/lse-alphabet.json`,
+      `${this.base}models/lse-alphabet.bin`,
     ];
   }
 

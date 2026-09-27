@@ -42,4 +42,6 @@ export interface ISignClassifier {
    * opposite things: an abstention is an answer, a floor rejection is a near miss.
    */
   readonly lastAbstained?: boolean;
+  /** Forgets state carried from frame to frame, so a new run does not start mid-letter. */
+  reset?(): void;
 }
