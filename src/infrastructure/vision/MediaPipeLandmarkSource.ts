@@ -123,12 +123,12 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
         baseOptions: { modelAssetPath: this.options.poseModelPath, delegate: 'GPU' },
         runningMode: 'VIDEO',
         numPoses: 1,
-      }).catch(() => null),
+      }).catch(optional('pose')),
       FaceLandmarker.createFromOptions(fileset, {
         baseOptions: { modelAssetPath: this.options.faceModelPath, delegate: 'GPU' },
         runningMode: 'VIDEO',
         numFaces: 1,
-      }).catch(() => null),
+      }).catch(optional('face')),
     ]);
     this.pose = pose;
     this.face = face;
@@ -222,6 +222,14 @@ export class MediaPipeLandmarkSource implements ILandmarkSource {
   get available(): { pose: boolean; face: boolean } {
     return { pose: this.pose !== null, face: this.face !== null };
   }
+}
+
+/** Reading carries on without the tracker; `available` is how the UI tells the user. */
+function optional(tracker: 'pose' | 'face') {
+  return (cause: unknown): null => {
+    console.warn(`The ${tracker} landmarker did not load; reading without it`, cause);
+    return null;
+  };
 }
 
 interface MediaPipeResult {

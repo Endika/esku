@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { VOCABULARY_SIGNATURE_LENGTH } from '@domain/recognition/services/vocabularySignature';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
+import { ModelFileError } from '../modelFiles';
 import { AbstentionUndeclaredError, VocabularySignClassifier } from '../VocabularySignClassifier';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..', '..');
@@ -33,6 +34,8 @@ function serveModelFromDisk(): void {
     const name = String(input).split('/').pop()!;
     const bytes = readFileSync(join(MODELS, name));
     return {
+      ok: true,
+      status: 200,
       json: async () => JSON.parse(bytes.toString('utf-8')),
       arrayBuffer: async () =>
         bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
@@ -177,8 +180,12 @@ describe('VocabularySignClassifier', () => {
 
       globalThis.fetch = (async (input: RequestInfo | URL) =>
         String(input).endsWith('.json')
-          ? ({ json: async () => manifest } as Response)
-          : ({ arrayBuffer: async () => blob.buffer } as Response)) as typeof fetch;
+          ? ({ ok: true, status: 200, json: async () => manifest } as Response)
+          : ({
+              ok: true,
+              status: 200,
+              arrayBuffer: async () => blob.buffer,
+            } as Response)) as typeof fetch;
     }
 
     const oneWindow = () => [buildFrame(0, buildHand({ curls: [0.5, 0.2, 0.4, 0.6, 0.3] }))];
@@ -234,6 +241,63 @@ describe('VocabularySignClassifier', () => {
       serveModel([0.03, 0.02, 0.95], null);
 
       await expect(classifier().load()).rejects.toThrow(AbstentionUndeclaredError);
+    });
+  });
+
+  describe('a damaged model', () => {
+    type Manifest = { order: string[]; shapes: Record<string, number[]> };
+    const shipped = (): { manifest: Manifest; weights: ArrayBuffer } => {
+      const bytes = readFileSync(join(MODELS, 'lse-vocabulary.bin'));
+      return {
+        manifest: JSON.parse(readFileSync(join(MODELS, 'lse-vocabulary.json'), 'utf-8')),
+        weights: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      };
+    };
+
+    function serve(manifest: unknown, weights: ArrayBuffer | null): void {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        if (String(input).endsWith('.json')) {
+          return { ok: true, status: 200, json: async () => manifest } as Response;
+        }
+        return weights
+          ? ({ ok: true, status: 200, arrayBuffer: async () => weights } as Response)
+          : ({ ok: false, status: 404, arrayBuffer: async () => new ArrayBuffer(8) } as Response);
+      }) as typeof fetch;
+    }
+
+    it('refuses weights cut short, as a half-finished download leaves them', async () => {
+      const { manifest, weights } = shipped();
+      serve(manifest, weights.slice(0, weights.byteLength - 4096));
+
+      const engine = classifier();
+      await expect(engine.load()).rejects.toThrow(ModelFileError);
+      expect(engine.isReady()).toBe(false);
+    });
+
+    it('refuses weights the server could not find', async () => {
+      serve(shipped().manifest, null);
+
+      await expect(classifier().load()).rejects.toThrow(/HTTP 404/);
+    });
+
+    it('refuses a manifest that lists a tensor without its shape', async () => {
+      const { manifest, weights } = shipped();
+      const { 'head.3.bias': _dropped, ...shapes } = manifest.shapes;
+      serve({ ...manifest, shapes }, weights);
+
+      await expect(classifier().load()).rejects.toThrow(/head\.3\.bias/);
+    });
+
+    it('refuses weights missing a tensor the network reads', async () => {
+      const { manifest, weights } = shipped();
+      const last = manifest.order.at(-1)!;
+      const size = manifest.shapes[last]!.reduce((a, b) => a * b, 1);
+      serve(
+        { ...manifest, order: manifest.order.slice(0, -1) },
+        weights.slice(0, weights.byteLength - size * 4),
+      );
+
+      await expect(classifier().load()).rejects.toThrow(ModelFileError);
     });
   });
 });
