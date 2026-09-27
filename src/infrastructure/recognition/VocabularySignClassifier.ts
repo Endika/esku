@@ -26,6 +26,7 @@ import {
   relu,
   softmax,
 } from './gru';
+import { fetchModel, requireTensor, sliceTensors } from './modelFiles';
 
 /**
  * The engine's own floor, and *not* the one that decides: `RecognizeSignsUseCase` applies a
@@ -137,10 +138,10 @@ export class VocabularySignClassifier implements ISignClassifier {
   async load(): Promise<void> {
     if (this.tensors) return;
 
-    const [manifest, blob] = await Promise.all([
-      fetch(this.manifestUrl).then((r) => r.json() as Promise<VocabularyManifest>),
-      fetch(this.weightsUrl).then((r) => r.arrayBuffer()),
-    ]);
+    const [manifest, blob] = await fetchModel<VocabularyManifest>(
+      this.manifestUrl,
+      this.weightsUrl,
+    );
 
     // Fail loudly here rather than predicting noise later. A signature-layout drift between
     // the app and the trainer produces confident nonsense, which is far harder to notice.
@@ -153,14 +154,8 @@ export class VocabularySignClassifier implements ISignClassifier {
     );
     if (undeclared.length > 0) throw new AbstentionUndeclaredError(undeclared);
 
-    const floats = new Float32Array(blob);
-    const tensors = new Map<string, Float32Array>();
-    let offset = 0;
-    for (const name of manifest.order) {
-      const size = (manifest.shapes[name] ?? []).reduce((a, b) => a * b, 1);
-      tensors.set(name, floats.subarray(offset, offset + size));
-      offset += size;
-    }
+    const tensors = sliceTensors(manifest.order, manifest.shapes, blob);
+    for (const name of requiredTensors(manifest.layers)) requireTensor(tensors, name);
 
     this.manifest = manifest;
     this.tensors = tensors;
@@ -249,4 +244,17 @@ export class VocabularySignClassifier implements ISignClassifier {
     const hiddenLayer = relu(affine(shaped('head.0.weight'), pooled, get('head.0.bias')));
     return affine(shaped('head.3.weight'), hiddenLayer, get('head.3.bias'));
   }
+}
+
+function requiredTensors(layers: number): string[] {
+  const names = ['norm.weight', 'norm.bias'];
+  for (let layer = 0; layer < layers; layer += 1) {
+    for (const suffix of ['', '_reverse']) {
+      for (const kind of ['weight_ih', 'weight_hh', 'bias_ih', 'bias_hh']) {
+        names.push(`gru.${kind}_l${layer}${suffix}`);
+      }
+    }
+  }
+  names.push('head.0.weight', 'head.0.bias', 'head.3.weight', 'head.3.bias');
+  return names;
 }

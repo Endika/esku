@@ -1,5 +1,4 @@
 import { Container } from '@bootstrap/Container';
-import { CameraUnavailableError } from '@domain/landmarks/services/ILandmarkSource';
 import { WEAK_LETTERS } from '@infrastructure/recognition/CtcAlphabetClassifier';
 import { DiagnosticsPanel } from '@presentation/components/DiagnosticsPanel';
 import {
@@ -12,6 +11,11 @@ import {
 } from '@presentation/components/LandmarkOverlay';
 import { StoragePanel } from '@presentation/components/StoragePanel';
 import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
+import {
+  missingTrackersNotice,
+  startFailureMessage,
+  untrackedParts,
+} from '@presentation/engineNotices';
 import {
   applyThemePreference,
   followSystemTheme,
@@ -289,6 +293,8 @@ export function renderApp(root: HTMLElement): void {
   const overlay = new LandmarkOverlay(overlayCanvas, video);
   const diagnostics = new DiagnosticsPanel(must<HTMLElement>(root, '#diagnostics'));
 
+  let untracked = untrackedParts({ pose: true, face: true });
+  let trackerNotice: string | null = null;
   /**
    * A tick when a part is being tracked, a cross when it is not, per part and never by colour
    * alone. The framing brackets sum it up: a hand found, then hands, face and torso in frame.
@@ -296,12 +302,14 @@ export function renderApp(root: HTMLElement): void {
   const showPresence = (presence: PartPresence | null) => {
     for (const part of PART_ORDER) {
       const chip = parts.querySelector<HTMLElement>(`[data-part="${part}"]`);
-      const on = presence?.[part] === true;
-      const off = presence !== null && presence[part] === false;
+      const missing = presence !== null && untracked.has(part);
+      const on = !missing && presence?.[part] === true;
+      const off = presence !== null && !on;
       chip?.classList.toggle('part--on', on);
       chip?.classList.toggle('part--off', off);
       const state = chip?.querySelector<HTMLElement>('.part__state');
-      if (state) state.textContent = on ? ': visto' : off ? ': no visto' : '';
+      if (state)
+        state.textContent = missing ? ': sin modelo' : on ? ': visto' : off ? ': no visto' : '';
     }
     frame.dataset.track =
       presence === null
@@ -371,12 +379,15 @@ export function renderApp(root: HTMLElement): void {
       // Both engines load before the camera opens, so the first sign is already recognisable
       // rather than silently ignored while weights are still arriving.
       await Promise.all([container.vocabulary.load(), container.taught.load()]);
+      await container.source.load();
+      untracked = untrackedParts(container.source.available);
+      trackerNotice = missingTrackersNotice(container.source.available);
       await recognize.start((update) => {
         const { transcript, candidates, frame } = update;
         render(transcript.toText(), candidates);
         const [state, message] = describeTracking(frame.hands.length, candidates.length > 0);
         showPresence(overlay.draw(frame, state));
-        status.textContent = message;
+        status.textContent = trackerNotice ? `${message} ${trackerNotice}` : message;
         diagnostics.update(update.diagnostics);
       });
       running = true;
@@ -387,10 +398,7 @@ export function renderApp(root: HTMLElement): void {
       overlayCanvas.classList.add('is-live');
       toggleLabel.textContent = 'Parar';
     } catch (error) {
-      status.textContent =
-        error instanceof CameraUnavailableError
-          ? 'No hay cámara o se denegó el permiso. Revísalo en los ajustes del navegador.'
-          : 'No se pudo iniciar el reconocimiento.';
+      status.textContent = startFailureMessage(error);
       // The camera never opened, so the layout must not be left claiming it did.
       root.classList.remove('is-running');
       // Without the real cause in the console this is undiagnosable from a bug report.

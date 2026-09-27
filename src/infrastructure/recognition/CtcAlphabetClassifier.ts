@@ -8,6 +8,7 @@ import {
 } from '@domain/recognition/value-objects/Gloss';
 import type { RawScore } from '@domain/recognition/value-objects/RecognitionDiagnostics';
 import { type GruDirection, gruStep, matrix } from './gru';
+import { fetchModel, requireTensor, sliceTensors } from './modelFiles';
 
 /** What `lsefs_train.py --export` writes beside the weights. */
 export interface AlphabetManifest {
@@ -87,10 +88,7 @@ export class CtcAlphabetClassifier implements ISignClassifier {
 
   async load(): Promise<void> {
     if (this.#manifest) return;
-    const [manifest, blob] = await Promise.all([
-      fetch(this.manifestUrl).then((r) => r.json() as Promise<AlphabetManifest>),
-      fetch(this.weightsUrl).then((r) => r.arrayBuffer()),
-    ]);
+    const [manifest, blob] = await fetchModel<AlphabetManifest>(this.manifestUrl, this.weightsUrl);
     await this.loadFrom(manifest, blob);
   }
 
@@ -102,26 +100,20 @@ export class CtcAlphabetClassifier implements ISignClassifier {
       throw new AlphabetLayoutMismatchError(manifest.inputs, FRAME_INPUTS);
     }
 
-    const floats = new Float32Array(blob);
-    const tensors = new Map<string, Float32Array>();
-    let offset = 0;
-    for (const name of manifest.order) {
-      const size = (manifest.shapes[name] ?? []).reduce((a, b) => a * b, 1);
-      tensors.set(name, floats.subarray(offset, offset + size));
-      offset += size;
-    }
+    const tensors = sliceTensors(manifest.order, manifest.shapes, blob);
+    const get = (name: string) => requireTensor(tensors, name);
 
     const gates = 3 * manifest.hidden;
     this.#layers = Array.from({ length: manifest.layers }, (_, layer) => {
       const inputs = layer === 0 ? manifest.inputs : manifest.hidden;
       return {
-        weightIh: matrix(gates, inputs, tensors.get(`gru.weight_ih_l${layer}`)!),
-        weightHh: matrix(gates, manifest.hidden, tensors.get(`gru.weight_hh_l${layer}`)!),
-        biasIh: tensors.get(`gru.bias_ih_l${layer}`)!,
-        biasHh: tensors.get(`gru.bias_hh_l${layer}`)!,
+        weightIh: matrix(gates, inputs, get(`gru.weight_ih_l${layer}`)),
+        weightHh: matrix(gates, manifest.hidden, get(`gru.weight_hh_l${layer}`)),
+        biasIh: get(`gru.bias_ih_l${layer}`),
+        biasHh: get(`gru.bias_hh_l${layer}`),
       };
     });
-    this.#head = { weight: tensors.get('head.weight')!, bias: tensors.get('head.bias')! };
+    this.#head = { weight: get('head.weight'), bias: get('head.bias') };
     this.#manifest = manifest;
     this.reset();
   }

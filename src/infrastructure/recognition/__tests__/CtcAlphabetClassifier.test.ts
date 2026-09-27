@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
 import type { AlphabetManifest } from '../CtcAlphabetClassifier';
 import { CtcAlphabetClassifier } from '../CtcAlphabetClassifier';
+import { ModelFileError } from '../modelFiles';
 
 /**
  * The difference that matters against the handshape table: this engine is an automaton, not a
@@ -115,5 +116,17 @@ describe('CtcAlphabetClassifier', () => {
     const total = classifier.lastScores.reduce((sum, s) => sum + s.confidence, 0);
 
     expect(total).toBeCloseTo(1, 6);
+  });
+
+  it('refuses weights shorter than the manifest describes', async () => {
+    const fresh = new CtcAlphabetClassifier();
+    await expect(fresh.loadFrom(manifest, weights().slice(0, 64))).rejects.toThrow(ModelFileError);
+    expect(fresh.isReady()).toBe(false);
+  });
+
+  it('refuses a manifest that lists a tensor without its shape', async () => {
+    const { 'head.bias': _dropped, ...shapes } = manifest.shapes;
+    const fresh = new CtcAlphabetClassifier();
+    await expect(fresh.loadFrom({ ...manifest, shapes }, weights())).rejects.toThrow(/head\.bias/);
   });
 });
