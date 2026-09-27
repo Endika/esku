@@ -12,7 +12,7 @@ export interface StoragePanelPorts {
  * Lets the user see and reclaim the space the recognition engine takes.
  *
  * Downloading is offered up front rather than only happening on first use: knowing it is
- * ~29 MB before it starts is the difference between a considered choice and a surprise on
+ * ~20 MB before it starts is the difference between a considered choice and a surprise on
  * mobile data.
  */
 export class StoragePanel {

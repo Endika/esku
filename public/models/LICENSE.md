@@ -24,8 +24,9 @@ So these weights are distributed under **Creative Commons Attribution-NonCommerc
 International**, with attribution as recorded in [`NOTICE.md`](../../NOTICE.md).
 
 Using Esku is unaffected: the app is free and stays free. What this does mean is that **a
-commercial fork cannot ship this model**. Retraining on SWL-LSE alone produces an MIT-clean model,
-at the cost of the accuracy that LSE-Health's co-articulated annotations buy.
+commercial fork cannot ship this model**. Retraining on SWL-LSE alone produces a CC BY 4.0 model
+with no commercial restriction, at the cost of the accuracy that LSE-Health's co-articulated
+annotations bring.
 
 ## `lse-alphabet.bin` and `lse-alphabet.json` — CC BY 4.0
 

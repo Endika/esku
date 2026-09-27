@@ -18,7 +18,7 @@ signers (deaf signers, interpreters and L2 students).
 
 CC-BY-4.0 permits redistribution and derivative works, including the trained weights
 shipped in `public/models/`, provided attribution is given. This file is that
-attribution, and it is also surfaced in the app's "Acerca de" screen.
+attribution, and it is also credited at the foot of the app's "Herramientas" panel.
 
 No dataset video or landmark file is redistributed in this repository — only weights
 derived from it.
@@ -68,7 +68,7 @@ why it is CC BY 4.0 and the vocabulary model is not. See
 timings — which is why the model is trained with CTC. As with the other corpora, no video and no
 landmark file is redistributed here; only derived weights.
 
-## MediaPipe Tasks (hand and pose landmarks)
+## MediaPipe Tasks (hand, pose and face landmarks)
 
 Landmark extraction uses Google's MediaPipe Tasks Vision bundles, vendored into
 `public/models/` and served same-origin.
@@ -76,16 +76,11 @@ Landmark extraction uses Google's MediaPipe Tasks Vision bundles, vendored into
 - Licence: **Apache License 2.0**
 - Source: <https://github.com/google-ai-edge/mediapipe>
 
-## ONNX Runtime Web
-
-- Licence: **MIT**
-- Source: <https://github.com/microsoft/onnxruntime>
-
 ## Not used
 
 **sign.mt** (<https://sign.mt>) is the closest prior art and was studied as a reference,
 but it is licensed **CC BY-NC-SA 4.0** — non-commercial and share-alike. No sign.mt code,
-weights or assets are vendored here, so Esku stays MIT-licensable.
+weights or assets are vendored here, so Esku's code stays MIT.
 
 **LSE_Lex40_UVIGO** is not used, and cannot be: UVigo never published it, because their data
 protection officer did not find sufficient guarantees under GDPR. The group pointed us at

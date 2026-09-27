@@ -77,7 +77,7 @@ Pass `--base /esku/` and verify content, not status.
 | `CHROME` | `./chrome-linux64/chrome` | browser binary |
 | `SECONDS` | `20` | how long to sign at it (the clip loops) |
 | `PLAYBACK` | `1` | clip speed. Below 1 the signer is genuinely slower — it no longer compensates for a slow pipeline, because the thresholds are in time now |
-| `GL` | swiftshader | `auto` lets Chrome pick. Measured: no faster here, WebGL falls back to software regardless |
+| `GL` | swiftshader | `auto` lets Chrome pick. Measured: no faster headless, WebGL falls back to software regardless |
 
 ## The other script: `layout.mjs`
 
@@ -110,7 +110,7 @@ discarded as short, raw unfiltered scores, the per-body-part feature profile aga
 training reference, and the transcript.
 
 Recognition is deliberately not asserted. It needs a frame rate a software-WebGL headless box
-does not reach — about 1.3 fps here against a floor of 3.5 — and a permanently red check
+does not reach — about 1.3 fps against a floor of 3.5 — and a permanently red check
 invites someone to lower a shipped threshold to make it green. The harness reads
 `minSignMs` and `minFrames` straight out of `SignSegmenter.ts` rather than copying them, so it
 cannot drift from the app it is measuring; if they are renamed it throws instead of guessing.

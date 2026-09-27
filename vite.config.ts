@@ -54,8 +54,8 @@ export default defineConfig(({ command }) => ({
         ],
       },
       workbox: {
-        // Precache the shell only. The recognition engine is ~29 MB of WASM and weights;
-        // precaching it would mean a 29 MB download before the first screen paints, and
+        // Precache the shell only. The recognition engine is ~42 MB of WASM and weights;
+        // precaching it would mean a 42 MB download before the first screen paints, and
         // most of it is the SIMD/no-SIMD pair of which any given browser uses exactly one.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         globIgnores: ['wasm/**', 'models/**'],
