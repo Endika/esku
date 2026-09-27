@@ -168,7 +168,7 @@ export function renderApp(root: HTMLElement): void {
               </p>
               <p class="card__body">
                 <strong>Signando de corrido cae mucho:</strong> escribe la palabra correcta en torno a
-                <strong>1 de cada 3</strong> signos. Un signo pegado al siguiente es más difícil que un
+                <strong>4 de cada 10</strong> signos. Un signo pegado al siguiente es más difícil que un
                 signo suelto, y eso no está resuelto en ningún idioma todavía. Es un modelo real, no
                 infalible: revisa el texto antes de darlo por bueno.
               </p>
