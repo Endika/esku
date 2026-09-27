@@ -187,9 +187,8 @@ const browser = await puppeteer.launch({
     '--no-sandbox',
     '--use-fake-ui-for-media-stream',
     '--autoplay-policy=no-user-gesture-required',
-    // MediaPipe wants a GPU delegate. Headless here gets software WebGL — about 1.3 fps, well
-    // under the floor above, so recognition cannot be asserted from this machine. Measured:
-    // WSL's /dev/dxg does not help, WebGL falls back to software regardless.
+    // MediaPipe wants a GPU delegate. Headless Chromium gets software WebGL — about 1.3 fps,
+    // well under the floor above, so this harness cannot assert recognition.
     ...(process.env.GL === 'auto'
       ? []
       : ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader']),
