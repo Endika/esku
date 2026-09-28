@@ -82,8 +82,10 @@ Pass `--base /esku/` and verify content, not status.
 ## The other script: `layout.mjs`
 
 Same browser, no corpus and no camera — it measures the built page at 390×844 and 320×640 and
-prints page height, horizontal overflow, the height of the action bar and the buttons actually
-visible. It serves `dist/` itself, so the `vite preview` trap above does not apply:
+prints page height, horizontal overflow, the bottom bar's height and whether it clears the fold,
+the buttons actually reachable (not those in the shut tools sheet), the height of each viewfinder
+block and each tools card, and how much of the sheet shows when open. It serves `dist/` itself,
+so the `vite preview` trap above does not apply:
 
 ```bash
 cd ../..
@@ -91,10 +93,9 @@ npm run build
 node tools/browser/layout.mjs
 ```
 
-It exists because the page had grown to 3.1 screens with ten buttons on it and every review
-read fine — jsdom computes no heights, so nothing in `npm run test:run` could see it. Two
-readings it takes are forced rather than reached (`is-running` and a filled transcript): both
-need a camera and a recognised sign, and what is being measured is the layout they produce.
+jsdom computes no heights, so nothing in `npm run test:run` can see any of this. The second
+reading at each size is forced rather than reached (`is-running` and a filled transcript): it
+needs a camera and a recognised sign, and what is being measured is the layout they produce.
 
 ## What it asserts, and what it only measures
 
