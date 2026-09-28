@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.3](https://github.com/Endika/esku/compare/v1.19.2...v1.19.3) (2026-09-28)
+
+
+### Bug Fixes
+
+* say the model is broken, not the connection, when a downloaded model file is damaged ([bd3306b](https://github.com/Endika/esku/commit/bd3306b73f88205e55f256e9994d5a0eef0164aa))
+* say when reading a frame fails instead of stopping in silence, and keep trying ([f534788](https://github.com/Endika/esku/commit/f5347888bfbad2518a8bb2f9af5139a7fb5acb45))
+
 ## [1.19.2](https://github.com/Endika/esku/compare/v1.19.1...v1.19.2) (2026-09-28)
 
 
