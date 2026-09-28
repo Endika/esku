@@ -203,7 +203,9 @@ export function renderApp(root: HTMLElement): void {
             · Vocabulario LSE sobre
             <a href="https://zenodo.org/records/13691887" rel="noreferrer">SWL-LSE</a> (CC-BY-4.0) y
             <a href="https://zenodo.org/records/10234465" rel="noreferrer">LSE-Health-UVigo</a>
-            (CC-BY-NC-4.0) · el vídeo no sale de tu dispositivo:
+            (CC-BY-NC-4.0) · Alfabeto sobre
+            <a href="https://zenodo.org/records/15797079" rel="noreferrer">LSE-FS-UVigo</a> (CC-BY-4.0)
+            · el vídeo no sale de tu dispositivo:
             <a href="https://github.com/Endika/esku/blob/main/PRIVACY.md" rel="noreferrer">privacidad</a>
           </p>
         </div>
