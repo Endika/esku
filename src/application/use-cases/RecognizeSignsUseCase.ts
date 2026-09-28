@@ -23,6 +23,8 @@ export interface RecognitionUpdate {
   readonly frame: LandmarkFrame;
   /** Counters behind the pipeline, for the diagnostics panel. Never shown by default. */
   readonly diagnostics: RecognitionDiagnostics;
+  /** True from a frame the engines threw on until one goes through again. */
+  readonly failing: boolean;
 }
 
 export type RecognitionListener = (update: RecognitionUpdate) => void;
@@ -103,6 +105,8 @@ export class RecognizeSignsUseCase {
   private wordsEmitted = 0;
   private lettersEmitted = 0;
   private lastSignature: SignatureProfile | null = null;
+  private framesFailed = 0;
+  private lastFailure: string | null = null;
   /** The segmenter outlives a session, so short-window counts are read as a delta. */
   private shortWindowsAtStart = 0;
 
@@ -234,7 +238,14 @@ export class RecognizeSignsUseCase {
         this.windowStabilizer.release();
       }
 
+      this.lastFailure = null;
       this.emit(live, frame);
+    } catch (error) {
+      // Every later frame usually throws the same way, so the console gets one per streak.
+      if (this.lastFailure === null) console.error(error);
+      this.framesFailed += 1;
+      this.lastFailure = error instanceof Error ? error.message : String(error);
+      this.emit([], frame);
     } finally {
       this.busy = false;
     }
@@ -323,6 +334,8 @@ export class RecognizeSignsUseCase {
     this.wordsEmitted = 0;
     this.lettersEmitted = 0;
     this.lastSignature = null;
+    this.framesFailed = 0;
+    this.lastFailure = null;
     this.shortWindowsAtStart = this.segmenter.discardedShortWindows;
   }
 
@@ -345,6 +358,8 @@ export class RecognizeSignsUseCase {
       lettersEmitted: this.lettersEmitted,
       lastSignature: this.lastSignature,
       frameCost: this.source.frameCost?.() ?? null,
+      framesFailed: this.framesFailed,
+      lastFailure: this.lastFailure,
     };
   }
 
@@ -354,6 +369,7 @@ export class RecognizeSignsUseCase {
       candidates,
       frame,
       diagnostics: this.diagnostics,
+      failing: this.lastFailure !== null,
     });
   }
 }

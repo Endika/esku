@@ -32,6 +32,10 @@ export function missingTrackersNotice(available: TrackerAvailability): string | 
   return null;
 }
 
+export const RECOGNITION_FAILING_NOTICE =
+  'Algo falla al leer los signos y ahora no escribo nada. Sigo intentándolo; si no se ' +
+  'arregla, recarga la página.';
+
 export function startFailureMessage(error: unknown): string {
   if (error instanceof CameraUnavailableError) {
     return 'No hay cámara o se denegó el permiso. Revísalo en los ajustes del navegador.';

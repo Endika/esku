@@ -103,6 +103,7 @@ export class DiagnosticsPanel {
       ['Palabras del vocabulario', `${d.wordsEmitted}`],
       ['Letras deletreadas', `${d.lettersEmitted}`],
       ['Bloqueado por', d.lastVeto ? VETO_LABELS[d.lastVeto] : '—'],
+      ['Fotogramas con error', `${d.framesFailed}`],
     ];
 
     const scores = d.lastRawTop.length
@@ -118,6 +119,11 @@ export class DiagnosticsPanel {
             `<div class="diagnostics__row"><dt>${label}</dt><dd>${value}</dd></div>`,
         )
         .join('')}
+      ${
+        d.lastFailure
+          ? `<div class="diagnostics__row diagnostics__row--wide"><dt>Último error</dt><dd>${escapeHtml(d.lastFailure)}</dd></div>`
+          : ''
+      }
       <div class="diagnostics__row diagnostics__row--wide">
         <dt>Mejores opciones, sin filtrar</dt>
         <dd>${scores}</dd>
@@ -155,4 +161,9 @@ export class DiagnosticsPanel {
       })
       .join('');
   }
+}
+
+/** An error message can quote a file name or a URL, and is rendered into innerHTML. */
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

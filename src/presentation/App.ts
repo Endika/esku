@@ -13,6 +13,7 @@ import { StoragePanel } from '@presentation/components/StoragePanel';
 import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
 import {
   missingTrackersNotice,
+  RECOGNITION_FAILING_NOTICE,
   startFailureMessage,
   untrackedParts,
 } from '@presentation/engineNotices';
@@ -394,8 +395,9 @@ export function renderApp(root: HTMLElement): void {
       await recognize.start((update) => {
         const { transcript, candidates, frame } = update;
         render(transcript.toText(), candidates);
-        const [state, message] = describeTracking(frame.hands.length, candidates.length > 0);
+        const [state, tracking] = describeTracking(frame.hands.length, candidates.length > 0);
         showPresence(overlay.draw(frame, state));
+        const message = update.failing ? RECOGNITION_FAILING_NOTICE : tracking;
         status.textContent = trackerNotice ? `${message} ${trackerNotice}` : message;
         diagnostics.update(update.diagnostics);
       });
