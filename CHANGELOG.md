@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.2](https://github.com/Endika/esku/compare/v1.19.1...v1.19.2) (2026-09-28)
+
+
+### Bug Fixes
+
+* credit LSE-FS-UVigo in the app footnote ([0b36a1c](https://github.com/Endika/esku/commit/0b36a1c819813a67d5fd3d94ae164f7a9be4f076))
+
 ## [1.19.1](https://github.com/Endika/esku/compare/v1.19.0...v1.19.1) (2026-09-27)
 
 
