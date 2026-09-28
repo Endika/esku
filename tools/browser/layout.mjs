@@ -53,25 +53,39 @@ const measure = () => {
   const root = document.documentElement;
   const app = document.querySelector('#app');
   const height = (el) => Math.round(el.getBoundingClientRect().height);
+  const label = (el) =>
+    el.querySelector('.card__title')?.textContent.trim() ||
+    el.id ||
+    el.className.split(' ')[0] ||
+    el.tagName;
   // Not offsetParent: Chrome renders a shut <details> body through ::details-content with
   // content-visibility:hidden, so its buttons still have an offsetParent and count as shown.
-  const visible = (el) => height(el) > 0 && !el.closest('details:not([open])');
+  // The closed tools sheet is only translated off-screen, so it is excluded by being inert.
+  const visible = (el) =>
+    height(el) > 0 && !el.closest('details:not([open])') && !el.closest('[inert]');
+  const controls = document.querySelector('.controls');
+  const sheet = document.querySelector('#tools');
 
   return {
     pageHeight: root.scrollHeight,
     viewport: window.innerHeight,
     overflowX: Math.max(0, root.scrollWidth - root.clientWidth),
-    barHeight: height(document.querySelector('#actions')),
+    barHeight: height(controls),
+    barBelowFold: Math.max(
+      0,
+      Math.round(controls.getBoundingClientRect().bottom - window.innerHeight),
+    ),
     buttons: [...app.querySelectorAll('button')]
       .filter(visible)
       .map((button) => (button.getAttribute('aria-label') ?? button.textContent).trim()),
-    blocks: [...app.children]
-      .flatMap((el) =>
-        el.id === 'shell'
-          ? [...el.children].map((child) => [child.className.split(' ')[0] || child.tagName, child])
-          : [[el.querySelector('.card__title')?.textContent.trim() ?? el.tagName, el]],
-      )
-      .map(([label, el]) => [label, height(el)]),
+    viewfinder: [...document.querySelector('#viewfinder').children].map((el) => [
+      label(el),
+      height(el),
+    ]),
+    sheet: { shown: sheet.clientHeight, content: sheet.scrollHeight },
+    tools: [...sheet.querySelector('.tools__body').children]
+      .filter((el) => height(el) > 0)
+      .map((el) => [label(el), height(el)]),
   };
 };
 
@@ -81,11 +95,21 @@ const measure = () => {
  */
 const forceRunning = () => {
   document.querySelector('#app').classList.add('is-running');
+  document.querySelector('#placeholder').hidden = true;
   document.querySelector('#transcript').textContent = 'dolor cabeza fiebre';
   document.querySelector('#edit').hidden = false;
-  // The label the button really carries while running, and the widest thing in the row.
-  document.querySelector('#toggle').textContent = 'Parar';
+  document.querySelector('#toggle-label').textContent = 'Parar';
   return new Promise((resolve) => requestAnimationFrame(resolve));
+};
+
+const report = (m) => {
+  console.log(`page ${m.pageHeight}px = ${(m.pageHeight / m.viewport).toFixed(1)} screens`);
+  console.log(
+    `overflow-x ${m.overflowX}px · bottom bar ${m.barHeight}px, ${m.barBelowFold}px below the fold`,
+  );
+  console.log(`buttons: ${m.buttons.length} -> ${m.buttons.join(' | ')}`);
+  for (const [label, px] of m.viewfinder) console.log(`  ${String(px).padStart(5)}px  ${label}`);
+  console.log(`tools sheet, when open: ${m.sheet.shown}px shown of ${m.sheet.content}px`);
 };
 
 const browser = await puppeteer.launch({
@@ -101,16 +125,13 @@ for (const [width, height] of WIDTHS) {
 
   const off = await page.evaluate(measure);
   console.log(`\n=== ${width}x${height} · camera off ===`);
-  console.log(`page ${off.pageHeight}px = ${(off.pageHeight / off.viewport).toFixed(1)} screens`);
-  console.log(`overflow-x ${off.overflowX}px · action bar ${off.barHeight}px`);
-  console.log(`buttons: ${off.buttons.length} -> ${off.buttons.join(' | ')}`);
-  for (const [label, px] of off.blocks) console.log(`  ${String(px).padStart(5)}px  ${label}`);
+  report(off);
+  for (const [label, px] of off.tools)
+    console.log(`  ${String(px).padStart(5)}px  tools: ${label}`);
 
   await page.evaluate(forceRunning);
-  const on = await page.evaluate(measure);
-  console.log(`--- camera on, transcript filled`);
-  console.log(`overflow-x ${on.overflowX}px · action bar ${on.barHeight}px`);
-  console.log(`buttons: ${on.buttons.length} -> ${on.buttons.join(' | ')}`);
+  console.log('--- camera on, transcript filled');
+  report(await page.evaluate(measure));
 
   await page.close();
 }
