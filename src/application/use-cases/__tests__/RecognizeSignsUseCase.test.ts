@@ -4,7 +4,11 @@ import type { ISignClassifier } from '@domain/recognition/services/ISignClassifi
 import { createGloss, type SignCandidate } from '@domain/recognition/value-objects/Gloss';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildFrame, buildHand } from '@/test/handFixtures';
-import { type RecognitionUpdate, RecognizeSignsUseCase } from '../RecognizeSignsUseCase';
+import {
+  CaptureCancelledError,
+  type RecognitionUpdate,
+  RecognizeSignsUseCase,
+} from '../RecognizeSignsUseCase';
 
 /** Drives frames by hand instead of waiting on a camera. */
 class ScriptedSource implements ILandmarkSource {
@@ -314,6 +318,36 @@ describe('RecognizeSignsUseCase', () => {
       expect(last.diagnostics.lastFailure).toBeNull();
       expect(last.diagnostics.framesFailed).toBe(1);
       expect(recognize.current.toText().toLowerCase()).toContain('dolor');
+    });
+  });
+
+  describe('capturing a sign to teach', () => {
+    it('rejects the pending capture when it is cancelled, so the caller is not left waiting', async () => {
+      await recognize.start(() => {});
+      const capture = recognize.captureWindow();
+
+      recognize.cancelCapture();
+
+      await expect(capture).rejects.toBeInstanceOf(CaptureCancelledError);
+      expect(recognize.isCapturing).toBe(false);
+    });
+
+    it('rejects the pending capture when the camera stops', async () => {
+      await recognize.start(() => {});
+      const capture = recognize.captureWindow();
+
+      recognize.stop();
+
+      await expect(capture).rejects.toBeInstanceOf(CaptureCancelledError);
+    });
+
+    it('still hands over the next completed sign', async () => {
+      await recognize.start(() => {});
+      const capture = recognize.captureWindow();
+
+      for (const frame of scriptedSign()) source.push(frame);
+
+      expect((await capture).length).toBeGreaterThan(0);
     });
   });
 

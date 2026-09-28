@@ -32,6 +32,18 @@ export type RecognitionListener = (update: RecognitionUpdate) => void;
 /** Emitted alongside edits, which change the text without any new camera input. */
 const EMPTY_FRAME: LandmarkFrame = { timestampMs: 0, hands: [] };
 
+export class CaptureCancelledError extends Error {
+  constructor() {
+    super('The capture was cancelled before a sign was completed');
+    this.name = 'CaptureCancelledError';
+  }
+}
+
+interface PendingCapture {
+  readonly resolve: (window: readonly LandmarkFrame[]) => void;
+  readonly reject: (error: Error) => void;
+}
+
 /**
  * Drives the whole live pipeline: camera → segmenter → classifiers → stabiliser → transcript.
  *
@@ -84,7 +96,7 @@ export class RecognizeSignsUseCase {
   /** Guards against overlapping async classify calls piling up behind a slow frame. */
   private busy = false;
   /** Set while teaching: the next completed sign is handed over instead of transcribed. */
-  private capture: ((window: readonly LandmarkFrame[]) => void) | null = null;
+  private capture: PendingCapture | null = null;
   /**
    * A finished sign waiting for the classifier to free up.
    *
@@ -122,6 +134,7 @@ export class RecognizeSignsUseCase {
   }
 
   stop(): void {
+    this.cancelCapture();
     this.source.stop();
     this.pendingWindow = null;
     this.segmenter.reset();
@@ -169,15 +182,21 @@ export class RecognizeSignsUseCase {
    * Recording reuses the live segmenter rather than a separate timed capture, so a taught
    * example is delimited exactly the way a recognised sign will be. Capturing on a stopwatch
    * would train the app on windows it never sees at recognition time.
+   *
+   * Rejects with `CaptureCancelledError` if cancelled or stopped first, so the caller is never
+   * left awaiting a sign that will not come.
    */
   captureWindow(): Promise<readonly LandmarkFrame[]> {
-    return new Promise((resolve) => {
-      this.capture = resolve;
+    this.cancelCapture();
+    return new Promise((resolve, reject) => {
+      this.capture = { resolve, reject };
     });
   }
 
   cancelCapture(): void {
+    const pending = this.capture;
     this.capture = null;
+    pending?.reject(new CaptureCancelledError());
   }
 
   get isCapturing(): boolean {
@@ -207,7 +226,7 @@ export class RecognizeSignsUseCase {
         const deliver = this.capture;
         this.capture = null;
         this.pendingWindow = null;
-        deliver(closedWindow);
+        deliver.resolve(closedWindow);
       }
       this.emit([], frame);
       return;
