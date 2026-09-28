@@ -70,6 +70,10 @@ export interface RecognitionDiagnostics {
   readonly lastSignature: SignatureProfile | null;
   /** Per-model cost of a frame. Null until the camera has produced one. */
   readonly frameCost: FrameCost | null;
+  /** Frames an engine threw on, this session. */
+  readonly framesFailed: number;
+  /** The error behind the current run of failed frames; null once one goes through. */
+  readonly lastFailure: string | null;
 }
 
 export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
@@ -88,4 +92,6 @@ export const EMPTY_DIAGNOSTICS: RecognitionDiagnostics = {
   lettersEmitted: 0,
   lastSignature: null,
   frameCost: null,
+  framesFailed: 0,
+  lastFailure: null,
 };

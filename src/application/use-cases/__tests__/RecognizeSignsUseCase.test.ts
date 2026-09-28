@@ -72,6 +72,19 @@ class CountingWindowClassifier implements ISignClassifier {
   }
 }
 
+/** A vocabulary engine that throws while `broken`, the way a bad tensor or a lost GPU does. */
+class BreakableWindowClassifier extends CountingWindowClassifier {
+  broken = true;
+
+  override async classify(): Promise<readonly SignCandidate[]> {
+    if (this.broken) {
+      this.calls += 1;
+      throw new Error('tensor dolor.weight is missing');
+    }
+    return super.classify();
+  }
+}
+
 /** The alphabet engine: a letter on every frame with a hand, and a record of being reset. */
 class LetterClassifier implements ISignClassifier {
   readonly id = 'letters';
@@ -267,6 +280,40 @@ describe('RecognizeSignsUseCase', () => {
       const diagnostics = await signOnce();
 
       expect(diagnostics.windowsClosed).toBe(1);
+    });
+  });
+
+  describe('when an engine throws', () => {
+    let breakable: BreakableWindowClassifier;
+    let updates: RecognitionUpdate[];
+
+    beforeEach(async () => {
+      breakable = new BreakableWindowClassifier();
+      recognize = new RecognizeSignsUseCase(source, [breakable]);
+      updates = [];
+      await recognize.start((update) => updates.push(update));
+      for (const frame of scriptedSign()) source.push(frame);
+      await tick();
+    });
+
+    it('says so to the listener instead of going quiet', () => {
+      const last = updates.at(-1)!;
+
+      expect(last.failing).toBe(true);
+      expect(last.diagnostics.framesFailed).toBe(1);
+      expect(last.diagnostics.lastFailure).toMatch(/dolor.weight/);
+    });
+
+    it('keeps reading, and clears the failure once a sign goes through', async () => {
+      breakable.broken = false;
+      for (const frame of laterSign()) source.push(frame);
+      await tick();
+
+      const last = updates.at(-1)!;
+      expect(last.failing).toBe(false);
+      expect(last.diagnostics.lastFailure).toBeNull();
+      expect(last.diagnostics.framesFailed).toBe(1);
+      expect(recognize.current.toText().toLowerCase()).toContain('dolor');
     });
   });
 

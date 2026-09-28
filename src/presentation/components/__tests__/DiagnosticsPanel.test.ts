@@ -46,4 +46,14 @@ describe('DiagnosticsPanel', () => {
 
     expect(root.querySelector('#diag-body')?.textContent).toContain('99');
   });
+
+  it('shows why frames are failing, escaped since the message can quote anything', async () => {
+    await openAndSettle(root.querySelector<HTMLDetailsElement>('details')!);
+    panel.update({ ...reading, framesFailed: 7, lastFailure: '<b>tensor</b> missing' });
+
+    const body = root.querySelector('#diag-body')!;
+    expect(body.textContent).toContain('7');
+    expect(body.textContent).toContain('<b>tensor</b> missing');
+    expect(body.querySelector('b')).toBeNull();
+  });
 });
