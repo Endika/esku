@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.4](https://github.com/Endika/esku/compare/v1.19.3...v1.19.4) (2026-09-28)
+
+
+### Bug Fixes
+
+* settle cancelled captures and report teach-panel failures ([6c21450](https://github.com/Endika/esku/commit/6c21450d0381463220ef5c1c47c12eb7bdd9b1fc))
+* tell the user when clearing storage or reading its size fails ([3b70008](https://github.com/Endika/esku/commit/3b70008986f00014fa683d9ee81eda1cd82b9342))
+
 ## [1.19.3](https://github.com/Endika/esku/compare/v1.19.2...v1.19.3) (2026-09-28)
 
 
