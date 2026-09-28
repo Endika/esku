@@ -56,4 +56,40 @@ describe('StoragePanel', () => {
       expect(status).toMatch(/Liberar espacio/);
     });
   });
+
+  describe('when the storage itself fails', () => {
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('says the space could not be freed instead of leaving the last message up', async () => {
+      const root = document.createElement('div');
+      new StoragePanel(root, {
+        ...ports,
+        clear: async () => {
+          throw new Error('caches.delete rejected');
+        },
+      });
+      root.querySelector<HTMLButtonElement>('#clear')!.click();
+      await tick();
+
+      expect(root.querySelector('#storage-status')?.textContent).toBe(
+        'No se pudo liberar el espacio.',
+      );
+      expect(root.querySelector<HTMLButtonElement>('#clear')!.disabled).toBe(false);
+    });
+
+    it('says the figure is unknown rather than showing a dash forever', async () => {
+      const root = document.createElement('div');
+      new StoragePanel(root, {
+        ...ports,
+        report: async () => {
+          throw new Error('storage.estimate rejected');
+        },
+      });
+      await tick();
+
+      expect(root.querySelector('#storage-figure')?.textContent).toBe(
+        'No se pudo consultar el espacio.',
+      );
+    });
+  });
 });
