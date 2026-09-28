@@ -2,8 +2,25 @@ import type { LandmarkFrame } from '@domain/landmarks/value-objects/LandmarkFram
 import type { CustomSign } from '@domain/recognition/entities/CustomSign';
 import { MIN_PROTOTYPES_PER_SIGN } from '@domain/recognition/entities/CustomSign';
 
+/**
+ * The sign was saved or deleted, but the live recogniser still holds the old set until the app
+ * reloads. Thrown by `save` and `remove` so the panel does not report a change that happened
+ * as a failure.
+ */
+export class TaughtSignsNotReloadedError extends Error {
+  constructor(cause: unknown) {
+    super('The taught signs changed but the recogniser could not reload them', { cause });
+    this.name = 'TaughtSignsNotReloadedError';
+  }
+}
+
+const RECORDING_PROMPT = 'Haz el signo ahora. Para al terminar y se guarda solo.';
+
 export interface TeachSignPanelPorts {
-  /** Resolves with the next completed sign performed in front of the camera. */
+  /**
+   * Resolves with the next completed sign performed in front of the camera, or rejects with an
+   * error named `CaptureCancelledError` once `cancelCapture` or stopping the camera drops it.
+   */
   captureWindow(): Promise<readonly LandmarkFrame[]>;
   cancelCapture(): void;
   isCameraRunning(): boolean;
@@ -87,8 +104,12 @@ export class TeachSignPanel {
     return this.root.querySelector<HTMLButtonElement>(`#${id}`)!;
   }
 
+  private get status(): HTMLElement {
+    return this.root.querySelector<HTMLElement>('#teach-status')!;
+  }
+
   private say(message: string): void {
-    this.root.querySelector<HTMLElement>('#teach-status')!.textContent = message;
+    this.status.textContent = message;
   }
 
   private async recordTake(): Promise<void> {
@@ -100,12 +121,20 @@ export class TeachSignPanel {
 
     this.recording = true;
     this.button('record').disabled = true;
-    this.say('Haz el signo ahora. Para al terminar y se guarda solo.');
+    this.say(RECORDING_PROMPT);
 
     try {
       const window = await this.ports.captureWindow();
       this.takes.push(window);
       this.say(`Toma ${this.takes.length} guardada.`);
+    } catch (error) {
+      if (error instanceof Error && error.name === 'CaptureCancelledError') {
+        // Discarding says so itself; stopping the camera would leave the prompt standing.
+        if (this.status.textContent === RECORDING_PROMPT) this.say('Toma interrumpida.');
+      } else {
+        this.say('No se pudo grabar la toma.');
+        console.error(error);
+      }
     } finally {
       this.recording = false;
       this.button('record').disabled = false;
@@ -125,26 +154,45 @@ export class TeachSignPanel {
   }
 
   private async save(): Promise<void> {
+    let reloaded = true;
     try {
       await this.ports.save(this.input.value, this.takes);
-      this.takes = [];
-      this.input.value = '';
-      this.renderTakes();
-      this.say('Signo guardado. Ya lo reconoce.');
-      await this.refreshList();
     } catch (error) {
-      // The domain errors carry the reason; showing it beats a generic failure.
-      this.say(error instanceof Error ? reasonFor(error) : 'No se pudo guardar.');
+      if (isNotReloaded(error)) {
+        reloaded = false;
+        console.error(error);
+      } else {
+        // The domain errors carry the reason; showing it beats a generic failure.
+        const reason = error instanceof Error ? reasonFor(error) : null;
+        this.say(reason ?? 'No se pudo guardar.');
+        if (reason === null) console.error(error);
+        return;
+      }
     }
+    this.takes = [];
+    this.input.value = '';
+    this.renderTakes();
+    const listed = await this.refreshList();
+    if (!reloaded) this.say('Signo guardado, pero no se reconocerá hasta recargar la app.');
+    else if (!listed) this.say('Signo guardado, pero no se pudo actualizar la lista.');
+    else this.say('Signo guardado. Ya lo reconoce.');
   }
 
-  private async refreshList(): Promise<void> {
-    const signs = await this.ports.list();
+  /** Never throws: a list that fails to load says so in place and reports `false`. */
+  private async refreshList(): Promise<boolean> {
     const list = this.root.querySelector<HTMLElement>('#signs')!;
+    let signs: CustomSign[];
+    try {
+      signs = await this.ports.list();
+    } catch (error) {
+      list.innerHTML = '<li class="signs__empty">No se pudo cargar la lista de signos.</li>';
+      console.error(error);
+      return false;
+    }
 
     if (signs.length === 0) {
       list.innerHTML = '<li class="signs__empty">Todavía no le has enseñado ninguno.</li>';
-      return;
+      return true;
     }
 
     list.innerHTML = signs
@@ -160,15 +208,33 @@ export class TeachSignPanel {
 
     list.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => {
       button.addEventListener('click', async () => {
-        await this.ports.remove(button.dataset.delete!);
-        await this.refreshList();
-        this.say('Signo borrado.');
+        let reloaded = true;
+        try {
+          await this.ports.remove(button.dataset.delete!);
+        } catch (error) {
+          console.error(error);
+          if (!isNotReloaded(error)) {
+            this.say('No se pudo borrar el signo.');
+            return;
+          }
+          reloaded = false;
+        }
+        const listed = await this.refreshList();
+        if (!reloaded)
+          this.say('Signo borrado, pero se seguirá reconociendo hasta recargar la app.');
+        else if (!listed) this.say('Signo borrado, pero no se pudo actualizar la lista.');
+        else this.say('Signo borrado.');
       });
     });
+    return true;
   }
 }
 
-function reasonFor(error: Error): string {
+function isNotReloaded(error: unknown): boolean {
+  return error instanceof Error && error.name === 'TaughtSignsNotReloadedError';
+}
+
+function reasonFor(error: Error): string | null {
   switch (error.name) {
     case 'EmptySignTextError':
       return 'Escribe la palabra que debe aparecer.';
@@ -177,7 +243,7 @@ function reasonFor(error: Error): string {
     case 'DuplicateSignTextError':
       return 'Ya le has enseñado un signo con esa palabra.';
     default:
-      return 'No se pudo guardar.';
+      return null;
   }
 }
 

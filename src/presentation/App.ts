@@ -10,7 +10,10 @@ import {
   type PartPresence,
 } from '@presentation/components/LandmarkOverlay';
 import { StoragePanel } from '@presentation/components/StoragePanel';
-import { TeachSignPanel } from '@presentation/components/TeachSignPanel';
+import {
+  TaughtSignsNotReloadedError,
+  TeachSignPanel,
+} from '@presentation/components/TeachSignPanel';
 import {
   missingTrackersNotice,
   RECOGNITION_FAILING_NOTICE,
@@ -497,6 +500,14 @@ export function renderApp(root: HTMLElement): void {
     },
   });
 
+  const reloadTaught = async () => {
+    try {
+      await container.taught.refresh();
+    } catch (error) {
+      throw new TaughtSignsNotReloadedError(error);
+    }
+  };
+
   new TeachSignPanel(must<HTMLElement>(root, '#teach'), {
     captureWindow: () => recognize.captureWindow(),
     cancelCapture: () => {
@@ -506,12 +517,12 @@ export function renderApp(root: HTMLElement): void {
     save: async (text, examples) => {
       await container.teach.execute(text, examples);
       // Reload prototypes so the sign is recognised immediately, not after a restart.
-      await container.taught.refresh();
+      await reloadTaught();
     },
     list: () => container.manageCustomSigns.list(),
     remove: async (id) => {
       await container.manageCustomSigns.delete(id);
-      await container.taught.refresh();
+      await reloadTaught();
     },
   });
 }
