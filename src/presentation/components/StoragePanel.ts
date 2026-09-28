@@ -104,6 +104,9 @@ export class StoragePanel {
           ? 'Espacio liberado. Se volverá a descargar la próxima vez.'
           : 'No había nada guardado.',
       );
+    } catch (error) {
+      this.say('No se pudo liberar el espacio.');
+      console.error(error);
     } finally {
       this.setBusy(false);
       await this.refresh();
@@ -119,7 +122,15 @@ export class StoragePanel {
       return;
     }
 
-    const { cachedBytes, entries, hasRuntime } = await this.ports.report();
+    let report: Awaited<ReturnType<StoragePanelPorts['report']>>;
+    try {
+      report = await this.ports.report();
+    } catch (error) {
+      figure.textContent = 'No se pudo consultar el espacio.';
+      console.error(error);
+      return;
+    }
+    const { cachedBytes, entries, hasRuntime } = report;
 
     if (entries === 0) {
       figure.textContent = 'Nada guardado todavía';
