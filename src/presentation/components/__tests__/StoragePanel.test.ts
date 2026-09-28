@@ -1,3 +1,4 @@
+import { ModelFileError } from '@infrastructure/recognition/modelFiles';
 import { StoragePanel, type StoragePanelPorts } from '@presentation/components/StoragePanel';
 import { describe, expect, it } from 'vitest';
 
@@ -24,5 +25,35 @@ describe('StoragePanel', () => {
     new StoragePanel(root, ports);
 
     expect(root.querySelector('summary')?.textContent).toContain('19 MB');
+  });
+
+  describe('when the download fails', () => {
+    const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    async function preloadFailingWith(error: Error): Promise<string> {
+      const root = document.createElement('div');
+      new StoragePanel(root, {
+        ...ports,
+        preload: async () => {
+          throw error;
+        },
+      });
+      root.querySelector<HTMLButtonElement>('#preload')!.click();
+      await tick();
+      return root.querySelector('#storage-status')?.textContent ?? '';
+    }
+
+    it('blames the connection when the files did not arrive', async () => {
+      const status = await preloadFailingWith(new Error('Could not cache 2 of 7 engine files'));
+
+      expect(status).toMatch(/Comprueba la conexión/);
+    });
+
+    it('says the model is broken when the files arrived damaged', async () => {
+      const status = await preloadFailingWith(new ModelFileError('lse-vocabulary.bin is short'));
+
+      expect(status).not.toMatch(/conexión/);
+      expect(status).toMatch(/Liberar espacio/);
+    });
   });
 });

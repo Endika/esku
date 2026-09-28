@@ -36,20 +36,28 @@ export const RECOGNITION_FAILING_NOTICE =
   'Algo falla al leer los signos y ahora no escribo nada. Sigo intentándolo; si no se ' +
   'arregla, recarga la página.';
 
-export function startFailureMessage(error: unknown): string {
-  if (error instanceof CameraUnavailableError) {
-    return 'No hay cámara o se denegó el permiso. Revísalo en los ajustes del navegador.';
-  }
-  if (
+const BROKEN_MODEL =
+  'El modelo de signos está incompleto o no es de esta versión. Recarga la página; si sigue ' +
+  'igual, usa «Liberar espacio» en Herramientas y vuelve a descargarlo.';
+
+function isBrokenModel(error: unknown): boolean {
+  return (
     error instanceof ModelFileError ||
     error instanceof SignatureLayoutMismatchError ||
     error instanceof AbstentionUndeclaredError ||
     error instanceof AlphabetLayoutMismatchError
-  ) {
-    return (
-      'El modelo de signos está incompleto o no es de esta versión. Recarga la página; si sigue ' +
-      'igual, usa «Liberar espacio» en Herramientas y vuelve a descargarlo.'
-    );
+  );
+}
+
+export function startFailureMessage(error: unknown): string {
+  if (error instanceof CameraUnavailableError) {
+    return 'No hay cámara o se denegó el permiso. Revísalo en los ajustes del navegador.';
   }
+  if (isBrokenModel(error)) return BROKEN_MODEL;
   return 'No se pudo iniciar el reconocimiento.';
+}
+
+export function downloadFailureMessage(error: unknown): string {
+  if (isBrokenModel(error)) return BROKEN_MODEL;
+  return 'No se pudo descargar. Comprueba la conexión.';
 }

@@ -1,4 +1,5 @@
 import { formatBytes } from '@infrastructure/storage/EngineCacheStorage';
+import { downloadFailureMessage } from '@presentation/engineNotices';
 
 export interface StoragePanelPorts {
   isSupported(): boolean;
@@ -84,8 +85,9 @@ export class StoragePanel {
         this.say(`Descargando el motor… ${done} de ${total} ficheros`);
       });
       this.say('Motor descargado. Ya funciona sin conexión.');
-    } catch {
-      this.say('No se pudo descargar. Comprueba la conexión.');
+    } catch (error) {
+      this.say(downloadFailureMessage(error));
+      console.error(error);
     } finally {
       this.setBusy(false);
       await this.refresh();
