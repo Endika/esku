@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.5](https://github.com/Endika/esku/compare/v1.19.4...v1.19.5) (2026-10-02)
+
+
+### Bug Fixes
+
+* **deps:** bump ip-address in the browser harness past the NAT64 SSRF advisory ([9389640](https://github.com/Endika/esku/commit/9389640bcc53167e81d35814dcb7153c30a1a4d0))
+
 ## [1.19.4](https://github.com/Endika/esku/compare/v1.19.3...v1.19.4) (2026-09-28)
 
 
