@@ -56,7 +56,7 @@ export function describeHandShape(hand: HandLandmarks): HandShape {
 export function palmWidth(hand: HandLandmarks): number {
   const width = distance(pointAt(hand, HandPoint.indexMcp), pointAt(hand, HandPoint.pinkyMcp));
   // Guard against a degenerate hand collapsing the unit and producing Infinity ratios.
-  return width > 1e-6 ? width : 1e-6;
+  return Math.max(width, 1e-6);
 }
 
 /**
