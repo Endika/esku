@@ -145,7 +145,7 @@ function bodyFrame(pose: readonly Landmark[]): { centre: Landmark; width: number
     z: (left.z + right.z) / 2,
   };
   const width = distance(left, right);
-  return { centre, width: width > 1e-6 ? width : 1e-6 };
+  return { centre, width: Math.max(width, 1e-6) };
 }
 
 function handBlock(
