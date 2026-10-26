@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.7](https://github.com/Endika/esku/compare/v1.19.6...v1.19.7) (2026-10-26)
+
+
+### Bug Fixes
+
+* **harness:** open the diagnostics panel through its details element ([48f4093](https://github.com/Endika/esku/commit/48f409357d96d8df2182691b588b322ec6f056d6))
+
 ## [1.19.6](https://github.com/Endika/esku/compare/v1.19.5...v1.19.6) (2026-10-26)
 
 
