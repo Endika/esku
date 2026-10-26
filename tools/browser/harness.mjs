@@ -142,7 +142,12 @@ async function measure(browser, clip, floor) {
   await new Promise((resolve) => setTimeout(resolve, SECONDS * 1000));
   const elapsedS = (Date.now() - startedAt) / 1000;
 
-  await page.click('#diag-toggle');
+  // The panel only paints while open, and on a phone layout it sits in a sheet that may be
+  // off screen, so it is opened through the DOM rather than clicked.
+  await page.$eval('#diagnostics details', (details) => {
+    details.open = true;
+  });
+  await page.waitForSelector('#diag-body .diagnostics__row', { timeout: 5000 });
   const report = await page.evaluate(readPanel);
   await page.close();
 
