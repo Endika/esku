@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.6](https://github.com/Endika/esku/compare/v1.19.5...v1.19.6) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** patch zod, ip-address and serialize-javascript advisories ([8f4bd63](https://github.com/Endika/esku/commit/8f4bd6339892dfa84d846709285bdcb8a7b4e268))
+
 ## [1.19.5](https://github.com/Endika/esku/compare/v1.19.4...v1.19.5) (2026-10-02)
 
 
