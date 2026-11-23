@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.19.8](https://github.com/Endika/esku/compare/v1.19.7...v1.19.8) (2026-11-23)
+
+
+### Bug Fixes
+
+* **pwa:** precache the app again so installed apps update ([4f8bc0e](https://github.com/Endika/esku/commit/4f8bc0e223f32c1576309afa299adbcdff6a45a8))
+
 ## [1.19.7](https://github.com/Endika/esku/compare/v1.19.6...v1.19.7) (2026-10-26)
 
 

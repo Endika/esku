@@ -1,9 +1,9 @@
 {
   "name": "esku",
   "private": true,
-  "version": "1.19.7",
+  "version": "1.19.8",
   "type": "module",
-  "description": "Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from your phone camera, one at a time \u2014 a sequence of signs, not a grammatical translation",
+  "description": "Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from your phone camera, one at a time — a sequence of signs, not a grammatical translation",
   "license": "MIT",
   "author": "Endika Iglesias",
   "homepage": "https://endika.github.io/esku/",
