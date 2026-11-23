@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.19.7",
   "type": "module",
-  "description": "Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from your phone camera, one at a time — a sequence of signs, not a grammatical translation",
+  "description": "Offline PWA that recognises Spanish Sign Language (LSE) signs and fingerspelled letters from your phone camera, one at a time \u2014 a sequence of signs, not a grammatical translation",
   "license": "MIT",
   "author": "Endika Iglesias",
   "homepage": "https://endika.github.io/esku/",
@@ -15,7 +15,7 @@
   "scripts": {
     "dev": "vite",
     "predev": "node scripts/copy-wasm.mjs",
-    "build": "tsc && vite build",
+    "build": "tsc && vite build && node scripts/check-precache.mjs",
     "prebuild": "node scripts/copy-wasm.mjs",
     "preview": "vite preview",
     "test:run": "vitest run",
@@ -49,6 +49,9 @@
   },
   "overrides": {
     "sharp": "^0.35.5",
-    "minimatch": "^11.0.1"
+    "minimatch": "^11.0.1",
+    "workbox-build": {
+      "glob": "^13.0.0"
+    }
   }
 }
